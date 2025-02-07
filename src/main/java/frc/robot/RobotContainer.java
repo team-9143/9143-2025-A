@@ -23,8 +23,6 @@ import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine.Direction;
 
 import frc.robot.generated.TunerConstants;
 import frc.robot.Constants.ElevatorConstants;
-import frc.robot.Constants.CorAlConstants;
-import frc.robot.Constants.AlLowConstants;
 
 import frc.robot.subsystems.CommandSwerveDrivetrain;
 import frc.robot.subsystems.Elevator;
