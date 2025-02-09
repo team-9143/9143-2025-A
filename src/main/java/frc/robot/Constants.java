@@ -145,14 +145,21 @@ public final class Constants {
         public static final String NT_APRILTAG_TABLE = "AprilTagTracking";
         public static final String NT_TARGET_DISTANCE = "targetDistance";
         public static final String NT_CURRENT_DISTANCE = "currentDistance";
+		public static final String NT_TARGET_HORIZONTAL_OFFSET = "targetHorizontalOffset";
+		public static final String NT_CURRENT_HORIZONTAL_OFFSET = "currentHorizontalOffset";
         public static final String NT_ANGLE_TO_TARGET = "angleToTarget";
         
         // Default AprilTag Distances (meters)
         public static final class TagDistances {
-            public static final double TAG_1 = 1.0;
-            public static final double TAG_2 = 1.5;
-            public static final double TAG_3 = 2.0;
-            public static final double TAG_4 = 1.0;
+            public static final double TAG_1_DISTANCE = 1.0;
+            public static final double TAG_2_DISTANCE = 1.0;
+            public static final double TAG_3_DISTANCE = 1.0;
+            public static final double TAG_4_DISTANCE = 1.0;
+
+			public static final double TAG_1_HORIZONTAL = 0.0;
+			public static final double TAG_2_HORIZONTAL = 0.0;
+			public static final double TAG_3_HORIZONTAL = 0.0;
+			public static final double TAG_4_HORIZONTAL = 0.0;
         }
         
         // Tracking PID Values
@@ -178,6 +185,6 @@ public final class Constants {
             public static final int TRACKING_HEIGHT = 3;
             public static final int DEBUG_WIDTH = 2;
             public static final int DEBUG_HEIGHT = 4;
-        }
+		}
     }
 }

@@ -30,7 +30,7 @@ import edu.wpi.first.wpilibj.shuffleboard.*;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Subsystem;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
-
+import frc.robot.Constants.VisionConstants;
 import frc.robot.generated.TunerConstants.TunerSwerveDrivetrain;
 
 /**
@@ -58,6 +58,10 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
 		trackingTable.getDoubleTopic("currentDistance").subscribe(0);
     private final DoubleSubscriber angleToTargetSub =
 		trackingTable.getDoubleTopic("angleToTarget").subscribe(0);
+	private final DoubleSubscriber targetHorizontalOffsetSub =
+		trackingTable.getDoubleTopic("targetHorizontalOffset").subscribe(0);
+	private final DoubleSubscriber currentHorizontalOffsetSub =
+		trackingTable.getDoubleTopic("currentHorizontalOffset").subscribe(0);
     
     // Shuffleboard tab
     private final ShuffleboardTab swerveTab = Shuffleboard.getTab("Swerve");
@@ -334,17 +338,41 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
 	public Command createAprilTagTrackingCommand() {
         return run(() -> {
             if (targetDistanceSub.get() > 0) {
+				// Calculate position errors
                 double distanceError = currentDistanceSub.get() - targetDistanceSub.get();
+				double horizontalError = currentHorizontalOffsetSub.get() - targetHorizontalOffsetSub.get();
                 double angleError = angleToTargetSub.get();
+
+				// Apply deadbands
+                if (Math.abs(distanceError) < VisionConstants.TrackingGains.VELOCITY_DEADBAND) distanceError = 0;
+                if (Math.abs(horizontalError) < VisionConstants.TrackingGains.VELOCITY_DEADBAND) horizontalError = 0;
+                if (Math.abs(angleError) < VisionConstants.TrackingGains.ROTATION_DEADBAND) angleError = 0;
+
                 // Convert errors to robot-relative velocities
-                double vx = -distanceError * 0.5; // Proportional control for distance
-                double vy = angleError * 0.02;    // Proportional control for alignment
-                double omega = -angleError * 0.02; // Proportional control for rotation
+            	// Forward/backward movement to achieve desired distance
+                double vx = -distanceError * VisionConstants.TrackingGains.DISTANCE_kP;
+
+				// Sideways movement to achieve desired horizontal offset
+                double vy = -horizontalError * VisionConstants.TrackingGains.DISTANCE_kP - 
+					angleError * VisionConstants.TrackingGains.ANGLE_kP;
+
+				// Rotational velocity to maintain parallel alignment with tag
+                double omega = -angleError * VisionConstants.TrackingGains.ROTATION_kP;
+
+				// Clamp velocities to maximum values
+                vx = Math.min(Math.max(vx, -VisionConstants.TrackingGains.MAX_LINEAR_VELOCITY),
+					VisionConstants.TrackingGains.MAX_LINEAR_VELOCITY);
+                vy = Math.min(Math.max(vy, -VisionConstants.TrackingGains.MAX_LINEAR_VELOCITY),
+					VisionConstants.TrackingGains.MAX_LINEAR_VELOCITY);
+                omega = Math.min(Math.max(omega, -VisionConstants.TrackingGains.MAX_ANGULAR_VELOCITY),
+					VisionConstants.TrackingGains.MAX_ANGULAR_VELOCITY);
+
                 // Apply velocities using robot-centric control
+				// This keeps the robot's orientation parallel to the tag while moving to the desired position
                 setControl(new SwerveRequest.RobotCentric()
-                    .withVelocityX(vx)
-                    .withVelocityY(vy)
-                    .withRotationalRate(omega));
+					.withVelocityX(vx)	// Forward/backward movement
+					.withVelocityY(vy)	// Left/right movement
+                    .withRotationalRate(omega));	// Rotation to stay parallel
             }
         });
     }
