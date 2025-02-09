@@ -24,6 +24,7 @@ import frc.robot.subsystems.CommandSwerveDrivetrain;
 import frc.robot.subsystems.Elevator;
 import frc.robot.subsystems.CorAl;
 import frc.robot.subsystems.AlLow;
+import frc.robot.subsystems.Vision;
 
 public class RobotContainer {
 	private double MaxSpeed = TunerConstants.kSpeedAt12Volts.in(MetersPerSecond); // kSpeedAt12Volts desired top speed
@@ -48,6 +49,7 @@ public class RobotContainer {
 	private final Elevator elevator = new Elevator();
 	private final CorAl coral = new CorAl();
 	private final AlLow allow = new AlLow();
+	private final Vision vision = new Vision();
 
 	private final SendableChooser<Command> autoChooser;
 	private final ShuffleboardTab autoTab = Shuffleboard.getTab("Auto");
@@ -95,6 +97,16 @@ public class RobotContainer {
 
 		// Reset the field-centric heading on left bumper press
 		driver_controller.leftBumper().onTrue(drivetrain.runOnce(() -> drivetrain.seedFieldCentric()));
+
+		// Toggle AprilTag tracking with the Y button
+        driver_controller.y().onTrue(Commands.runOnce(() -> {
+            vision.toggleTracking();
+            if (vision.isTrackingEnabled()) {
+                drivetrain.createAprilTagTrackingCommand().schedule();
+            } else {
+                drivetrain.getCurrentCommand().cancel();
+            }
+        }));
 
 		drivetrain.registerTelemetry(logger::telemeterize);
 		

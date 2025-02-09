@@ -136,4 +136,48 @@ public final class Constants {
 		public static final double ALLOW_BASE_ANGLE = 0.0;
 		public static final double ALLOW_INTAKE_ANGLE = 45.0;
 	}
+
+	public static final class VisionConstants {
+        // Limelight Configuration
+        public static final String[] LIMELIGHT_NAMES = {"limelight-front", "limelight-2", "limelight-3"};
+        
+        // Network Tables
+        public static final String NT_APRILTAG_TABLE = "AprilTagTracking";
+        public static final String NT_TARGET_DISTANCE = "targetDistance";
+        public static final String NT_CURRENT_DISTANCE = "currentDistance";
+        public static final String NT_ANGLE_TO_TARGET = "angleToTarget";
+        
+        // Default AprilTag Distances (meters)
+        public static final class TagDistances {
+            public static final double TAG_1 = 1.0;
+            public static final double TAG_2 = 1.5;
+            public static final double TAG_3 = 2.0;
+            public static final double TAG_4 = 1.0;
+        }
+        
+        // Tracking PID Values
+        public static final class TrackingGains {
+            public static final double DISTANCE_kP = 0.5;
+            public static final double ANGLE_kP = 0.02;
+            public static final double ROTATION_kP = 0.02;
+            
+            // Velocity limits
+            public static final double MAX_LINEAR_VELOCITY = 2.0; // meters per second
+            public static final double MAX_ANGULAR_VELOCITY = Math.PI; // radians per second
+            
+            // Deadband values
+            public static final double VELOCITY_DEADBAND = 0.05;
+            public static final double ROTATION_DEADBAND = 0.05;
+        }
+        
+        // Shuffleboard Layout
+        public static final class ShuffleboardLayout {
+            public static final int VISION_TAB_WIDTH = 2;
+            public static final int VISION_TAB_HEIGHT = 2;
+            public static final int TRACKING_WIDTH = 2;
+            public static final int TRACKING_HEIGHT = 3;
+            public static final int DEBUG_WIDTH = 2;
+            public static final int DEBUG_HEIGHT = 4;
+        }
+    }
 }

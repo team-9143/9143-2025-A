@@ -1,204 +1,204 @@
 package frc.robot.subsystems;
 
-import edu.wpi.first.networktables.DoublePublisher;
-import edu.wpi.first.networktables.DoubleSubscriber;
-import edu.wpi.first.networktables.IntegerPublisher;
-import edu.wpi.first.networktables.IntegerSubscriber;
-import edu.wpi.first.networktables.NetworkTable;
-import edu.wpi.first.networktables.NetworkTableInstance;
-import edu.wpi.first.wpilibj.RobotBase;
-import edu.wpi.first.wpilibj.shuffleboard.Shuffleboard;
-import edu.wpi.first.wpilibj.shuffleboard.ShuffleboardLayout;
-import edu.wpi.first.wpilibj.shuffleboard.ShuffleboardTab;
+import java.util.*;
+import edu.wpi.first.networktables.*;
+import edu.wpi.first.wpilibj.shuffleboard.*;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 
+import frc.robot.Constants.VisionConstants;
+
 public class Vision extends SubsystemBase {
-    private final NetworkTable limelight;
+    private final NetworkTable[] limelights;
+    private final Map<Integer, Double> tagDistances = new HashMap<>();
+    private boolean trackingEnabled = false;
+    
+    // Network Tables
+    private final NetworkTable trackingTable;
+    private final DoubleSubscriber targetDistanceSub;
+    private final DoubleSubscriber currentDistanceSub;
+    private final DoubleSubscriber angleToTargetSub;
+    private final DoublePublisher targetDistancePub;
+    private final DoublePublisher currentDistancePub;
+    private final DoublePublisher angleToTargetPub;
+    
     private final ShuffleboardTab visionTab;
-    private final ShuffleboardLayout limelightLayout;
-    private final ShuffleboardLayout aprilTagLayout;
-
-    // Network Table subscribers
-    private final DoubleSubscriber tv_sub, tx_sub, ty_sub, ta_sub, tid_sub, pipeline_sub;
-    private final DoubleSubscriber poseX_sub, poseY_sub, poseZ_sub;
-    private final DoubleSubscriber poseYaw_sub, posePitch_sub, poseRoll_sub;
-
-    // Publishers for simulation
-    private final DoublePublisher tv_pub, tx_pub, ty_pub, ta_pub;
-    private final IntegerPublisher pipeline_pub, cam_pub;
-    private final DoublePublisher poseX_pub, poseY_pub, poseZ_pub;
-    private final DoublePublisher poseYaw_pub, posePitch_pub, poseRoll_pub;
+    private final List<ShuffleboardLayout> limelightLayouts = new ArrayList<>();
+    private final ShuffleboardLayout trackingLayout;
+    
+    // Network Table subscribers for each Limelight
+    private final List<DoubleSubscriber> tv_subs = new ArrayList<>();
+    private final List<DoubleSubscriber> tx_subs = new ArrayList<>();
+    private final List<DoubleSubscriber> ty_subs = new ArrayList<>();
+    private final List<DoubleSubscriber> ta_subs = new ArrayList<>();
+    private final List<DoubleSubscriber> tid_subs = new ArrayList<>();
+    private final List<DoubleSubscriber> pipeline_subs = new ArrayList<>();
+    private final List<DoubleSubscriber> poseX_subs = new ArrayList<>();
+    private final List<DoubleSubscriber> poseY_subs = new ArrayList<>();
+    private final List<DoubleSubscriber> poseZ_subs = new ArrayList<>();
 
     public Vision() {
-        limelight = NetworkTableInstance.getDefault().getTable("limelight");
+        // Initialize NetworkTables
+        limelights = new NetworkTable[VisionConstants.LIMELIGHT_NAMES.length];
+
+        // Initialize tracking NetworkTable and subscribers
+        trackingTable = NetworkTableInstance.getDefault().getTable(VisionConstants.NT_APRILTAG_TABLE);
+        targetDistanceSub = trackingTable.getDoubleTopic(VisionConstants.NT_TARGET_DISTANCE).subscribe(0.0);
+        currentDistanceSub = trackingTable.getDoubleTopic(VisionConstants.NT_CURRENT_DISTANCE).subscribe(0.0);
+        angleToTargetSub = trackingTable.getDoubleTopic(VisionConstants.NT_ANGLE_TO_TARGET).subscribe(0.0);
         
-        // Create main Vision tab
+        // Initialize publishers
+        targetDistancePub = trackingTable.getDoubleTopic(VisionConstants.NT_TARGET_DISTANCE).publish();
+        currentDistancePub = trackingTable.getDoubleTopic(VisionConstants.NT_CURRENT_DISTANCE).publish();
+        angleToTargetPub = trackingTable.getDoubleTopic(VisionConstants.NT_ANGLE_TO_TARGET).publish();
+
+        // Create Shuffleboard layouts
         visionTab = Shuffleboard.getTab("Vision");
-        
-        // Create layouts for organizing data
-        limelightLayout = visionTab.getLayout("Limelight", "List")
-            .withSize(2, 4)
+        trackingLayout = visionTab.getLayout("Tracking Status", BuiltInLayouts.kList)
+            .withSize(VisionConstants.ShuffleboardLayout.TRACKING_WIDTH, 
+                VisionConstants.ShuffleboardLayout.TRACKING_HEIGHT)
             .withPosition(0, 0);
-            
-        aprilTagLayout = visionTab.getLayout("AprilTag", "List")
-            .withSize(2, 4)
-            .withPosition(2, 0);
-
-        // Initialize subscribers
-        tv_sub = limelight.getDoubleTopic("tv").subscribe(0);
-        tx_sub = limelight.getDoubleTopic("tx").subscribe(0);
-        ty_sub = limelight.getDoubleTopic("ty").subscribe(0);
-        ta_sub = limelight.getDoubleTopic("ta").subscribe(0);
-        tid_sub = limelight.getDoubleTopic("tid").subscribe(0);
-        pipeline_sub = limelight.getDoubleTopic("getpipe").subscribe(0);
-
-        // AprilTag pose subscribers
-        poseX_sub = limelight.getDoubleTopic("poseX").subscribe(0);
-        poseY_sub = limelight.getDoubleTopic("poseY").subscribe(0);
-        poseZ_sub = limelight.getDoubleTopic("poseZ").subscribe(0);
-        poseYaw_sub = limelight.getDoubleTopic("poseYaw").subscribe(0);
-        posePitch_sub = limelight.getDoubleTopic("posePitch").subscribe(0);
-        poseRoll_sub = limelight.getDoubleTopic("poseRoll").subscribe(0);
-
-        // Initialize publishers for simulation
-        tv_pub = limelight.getDoubleTopic("tv").publish();
-        tx_pub = limelight.getDoubleTopic("tx").publish();
-        ty_pub = limelight.getDoubleTopic("ty").publish();
-        ta_pub = limelight.getDoubleTopic("ta").publish();
         
-        poseX_pub = limelight.getDoubleTopic("poseX").publish();
-        poseY_pub = limelight.getDoubleTopic("poseY").publish();
-        poseZ_pub = limelight.getDoubleTopic("poseZ").publish();
-        poseYaw_pub = limelight.getDoubleTopic("poseYaw").publish();
-        posePitch_pub = limelight.getDoubleTopic("posePitch").publish();
-        poseRoll_pub = limelight.getDoubleTopic("poseRoll").publish();
-        pipeline_pub = limelight.getIntegerTopic("pipeline").publish();
-        cam_pub = limelight.getIntegerTopic("camMode").publish();
-    }
+        // Initialize each Limelight
+        for (int i = 0; i < VisionConstants.LIMELIGHT_NAMES.length; i++) {
+            limelights[i] = NetworkTableInstance.getDefault().getTable(VisionConstants.LIMELIGHT_NAMES[i]);
 
-    // Basic target methods
-    public boolean hasValidTarget() {
-        return tv_sub.getAsDouble() == 1;
-    }
-
-    public double getTx() {
-        return tx_sub.getAsDouble();
-    }
-
-    public double getTy() {
-        return ty_sub.getAsDouble();
-    }
-
-    public double getArea() {
-        return ta_sub.getAsDouble();
-    }
-
-    // Pipeline and camera control methods
-    public void setPipeline(int pipeline) {
-        pipeline_pub.accept(pipeline);
-    }
-
-    public int getPipeline() {
-        return (int) pipeline_sub.getAsDouble();
-    }
-
-    public void setDriverCam(boolean isDriverCam) {
-        cam_pub.accept(isDriverCam ? 1 : 0);
-    }
-
-    public void toggleDriverCam() {
-        boolean currentMode = getCurrentCameraMode();
-        setDriverCam(!currentMode);
-    }
-
-    public boolean getCurrentCameraMode() {
-        return ((IntegerSubscriber) cam_pub).get() == 1;
-    }
-
-    // AprilTag methods
-    public int getAprilTagID() {
-        return (int) tid_sub.getAsDouble();
-    }
-
-    public double getAprilTagPoseX() {
-        return poseX_sub.getAsDouble();
-    }
-
-    public double getAprilTagPoseY() {
-        return poseY_sub.getAsDouble();
-    }
-
-    public double getAprilTagPoseZ() {
-        return poseZ_sub.getAsDouble();
-    }
-
-    public double getAprilTagYaw() {
-        return poseYaw_sub.getAsDouble();
-    }
-
-    public double getAprilTagPitch() {
-        return posePitch_sub.getAsDouble();
-    }
-
-    public double getAprilTagRoll() {
-        return poseRoll_sub.getAsDouble();
-    }
-
-    @Override
-    public void periodic() {
-        if (RobotBase.isSimulation()) {
-            simulateLimelight();
+            // Create layout for this Limelight
+            ShuffleboardLayout layout = visionTab.getLayout(VisionConstants.LIMELIGHT_NAMES[i], BuiltInLayouts.kList)
+                .withSize(VisionConstants.ShuffleboardLayout.VISION_TAB_WIDTH, 
+					VisionConstants.ShuffleboardLayout.VISION_TAB_HEIGHT)
+                .withPosition(2 + (i * 2), 0);
+            limelightLayouts.add(layout);
+            
+            // Initialize subscribers
+            tv_subs.add(limelights[i].getDoubleTopic("tv").subscribe(0));
+            tx_subs.add(limelights[i].getDoubleTopic("tx").subscribe(0));
+            ty_subs.add(limelights[i].getDoubleTopic("ty").subscribe(0));
+            ta_subs.add(limelights[i].getDoubleTopic("ta").subscribe(0));
+            tid_subs.add(limelights[i].getDoubleTopic("tid").subscribe(0));
+            pipeline_subs.add(limelights[i].getDoubleTopic("getpipe").subscribe(0));
+            poseX_subs.add(limelights[i].getDoubleTopic("targetpose_cameraspace").subscribe(0));
+            poseY_subs.add(limelights[i].getDoubleTopic("targetpose_cameraspace").subscribe(0));
+            poseZ_subs.add(limelights[i].getDoubleTopic("targetpose_cameraspace").subscribe(0));
         }
 
-        // Update Limelight values in Shuffleboard
-        limelightLayout.add("Has Target", hasValidTarget());
-        limelightLayout.add("Tx", getTx());
-        limelightLayout.add("Ty", getTy());
-        limelightLayout.add("Area", getArea());
-        limelightLayout.add("Pipeline", getPipeline());
-        limelightLayout.add("Driver Mode", getCurrentCameraMode());
-
-        // Update AprilTag values in Shuffleboard
-        aprilTagLayout.add("ID", getAprilTagID());
-        aprilTagLayout.add("X", getAprilTagPoseX());
-        aprilTagLayout.add("Y", getAprilTagPoseY());
-        aprilTagLayout.add("Z", getAprilTagPoseZ());
-        aprilTagLayout.add("Yaw", getAprilTagYaw());
-        aprilTagLayout.add("Pitch", getAprilTagPitch());
-        aprilTagLayout.add("Roll", getAprilTagRoll());
+        initializeTagDistances();
     }
-
-    private void simulateLimelight() {
-        // Simulate basic target data
-        tv_pub.set(1);
-        tx_pub.set(Math.random() * 20 - 10);
-        ty_pub.set(Math.random() * 20 - 10);
-        ta_pub.set(Math.random() * 100);
-
-        // Simulate AprilTag pose data
-        poseX_pub.set(Math.random() * 10);
-        poseY_pub.set(Math.random() * 10);
-        poseZ_pub.set(Math.random() * 10);
-        poseYaw_pub.set(Math.random() * 360 - 180);
-        posePitch_pub.set(Math.random() * 180 - 90);
-        poseRoll_pub.set(Math.random() * 180 - 90);
+	// Add getters for the tracking values
+    public double getTargetDistance() {
+        return targetDistanceSub.get();
     }
     
-    public void logTargetInfo() {
-        if (hasValidTarget()) {
-            System.out.println("Target Info:");
-            System.out.println("Horizontal Angle (Tx): " + getTx());
-            System.out.println("Vertical Angle (Ty): " + getTy());
-            System.out.println("Target Area: " + getArea());
-            System.out.println("AprilTag ID: " + getAprilTagID());
-            System.out.println("AprilTag Pose X: " + getAprilTagPoseX());
-            System.out.println("AprilTag Pose Y: " + getAprilTagPoseY());
-            System.out.println("AprilTag Pose Z: " + getAprilTagPoseZ());
-            System.out.println("AprilTag Yaw: " + getAprilTagYaw());
-            System.out.println("AprilTag Pitch: " + getAprilTagPitch());
-            System.out.println("AprilTag Roll: " + getAprilTagRoll());
-        } else {
-            System.out.println("No valid target found.");
+    public double getCurrentDistance() {
+        return currentDistanceSub.get();
+    }
+    
+    public double getAngleToTarget() {
+        return angleToTargetSub.get();
+    }
+    
+    private void initializeTagDistances() {
+        tagDistances.put(1, VisionConstants.TagDistances.TAG_1);
+        tagDistances.put(2, VisionConstants.TagDistances.TAG_2);
+        tagDistances.put(3, VisionConstants.TagDistances.TAG_3);
+        tagDistances.put(4, VisionConstants.TagDistances.TAG_4);
+		// Add more as needed
+    }
+    
+    public void setTagDistance(int tagId, double distance) {
+        tagDistances.put(tagId, distance);
+    }
+    
+    public void toggleTracking() {
+        trackingEnabled = !trackingEnabled;
+    }
+    
+    public boolean isTrackingEnabled() {
+        return trackingEnabled;
+    }
+    
+    // Methods to get data from specific Limelight
+    public boolean hasValidTarget(int limelightIndex) {
+        if (limelightIndex >= 0 && limelightIndex < limelights.length) {
+            return tv_subs.get(limelightIndex).get() == 1;
+        }
+        return false;
+    }
+    
+    public Optional<AprilTagTarget> getBestTarget() {
+        AprilTagTarget bestTarget = null;
+        double bestArea = 0;
+        
+        for (int i = 0; i < limelights.length; i++) {
+            if (hasValidTarget(i)) {
+                double currentArea = ta_subs.get(i).get();
+                if (currentArea > bestArea) {
+                    bestTarget = new AprilTagTarget(
+                        (int)tid_subs.get(i).get(),
+                        tx_subs.get(i).get(),
+                        poseX_subs.get(i).get(),
+                        poseY_subs.get(i).get(),
+                        i
+                    );
+                    bestArea = currentArea;
+                }
+            }
+        }
+        
+        return Optional.ofNullable(bestTarget);
+    }
+    
+    public static class AprilTagTarget {
+        public final int id;
+        public final double tx;
+        public final double poseX;
+        public final double poseY;
+        public final int limelightIndex;
+        
+        public AprilTagTarget(int id, double tx, double poseX, double poseY, int limelightIndex) {
+            this.id = id;
+            this.tx = tx;
+            this.poseX = poseX;
+            this.poseY = poseY;
+            this.limelightIndex = limelightIndex;
         }
     }
+    
+    @Override
+    public void periodic() {
+        // Update tracking values in NetworkTables when we have a valid target
+        getBestTarget().ifPresent(target -> {
+            double currentDistance = Math.sqrt(
+                Math.pow(poseX_subs.get(target.limelightIndex).get(), 2) +
+                Math.pow(poseY_subs.get(target.limelightIndex).get(), 2)
+            );
+            
+            currentDistancePub.set(currentDistance);
+            angleToTargetPub.set(target.tx);
+            targetDistancePub.set(tagDistances.getOrDefault(target.id, 0.0));
+        });
+        
+        // Update Shuffleboard
+        updateShuffleboard();
+    }
+
+	private void updateShuffleboard() {
+        // Update tracking layout
+        trackingLayout.add("Tracking Enabled", trackingEnabled);
+        getBestTarget().ifPresent(target -> {
+            trackingLayout.add("Current Tag ID", target.id);
+            trackingLayout.add("Target Distance", getTargetDistance());
+            trackingLayout.add("Current Distance", getCurrentDistance());
+            trackingLayout.add("Angle to Target", getAngleToTarget());
+        });
+        
+        // Update Limelight layouts
+        for (int i = 0; i < limelights.length; i++) {
+            ShuffleboardLayout layout = limelightLayouts.get(i);
+            layout.add("Has Target", hasValidTarget(i));
+            layout.add("Tx", tx_subs.get(i).get());
+            layout.add("Ty", ty_subs.get(i).get());
+            layout.add("Area", ta_subs.get(i).get());
+            layout.add("Tag ID", tid_subs.get(i).get());
+        }
+	}
 }

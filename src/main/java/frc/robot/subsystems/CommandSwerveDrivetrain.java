@@ -19,10 +19,14 @@ import edu.wpi.first.math.Matrix;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.numbers.N1;
 import edu.wpi.first.math.numbers.N3;
+import edu.wpi.first.networktables.NetworkTable;
+import edu.wpi.first.networktables.NetworkTableInstance;
+import edu.wpi.first.networktables.DoubleSubscriber;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj.Notifier;
 import edu.wpi.first.wpilibj.RobotController;
+import edu.wpi.first.wpilibj.shuffleboard.*;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.Subsystem;
 import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine;
@@ -44,6 +48,21 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
 	private static final Rotation2d kRedAlliancePerspectiveRotation = Rotation2d.k180deg;
 	// Keep track if we've ever applied the operator perspective before or not
 	private boolean m_hasAppliedOperatorPerspective = false;
+
+	// AprilTag tracking fields
+    private final NetworkTable trackingTable =
+		NetworkTableInstance.getDefault().getTable("AprilTagTracking");
+    private final DoubleSubscriber targetDistanceSub =
+		trackingTable.getDoubleTopic("targetDistance").subscribe(0);
+    private final DoubleSubscriber currentDistanceSub =
+		trackingTable.getDoubleTopic("currentDistance").subscribe(0);
+    private final DoubleSubscriber angleToTargetSub =
+		trackingTable.getDoubleTopic("angleToTarget").subscribe(0);
+    
+    // Shuffleboard tab
+    private final ShuffleboardTab swerveTab = Shuffleboard.getTab("Swerve");
+    private final ShuffleboardLayout drivetrainLayout;
+    private final ShuffleboardLayout trackingLayout;
 
 	// Swerve request to apply during robot-centric path following
 	private final SwerveRequest.ApplyRobotSpeeds m_pathApplyRobotSpeeds = new SwerveRequest.ApplyRobotSpeeds();
@@ -130,6 +149,18 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
 		SwerveModuleConstants<?, ?, ?>... modules
 	) {
 		super(drivetrainConstants, modules);
+
+		// Initialize Shuffleboard layouts
+        drivetrainLayout = swerveTab.getLayout("Drivetrain Status", BuiltInLayouts.kList)
+            .withSize(2, 4)
+            .withPosition(0, 0);
+            
+        trackingLayout = swerveTab.getLayout("AprilTag Tracking", BuiltInLayouts.kList)
+            .withSize(2, 3)
+            .withPosition(2, 0);
+            
+        configureShuffleboardData();
+		
 		if (Utils.isSimulation()) {
 			startSimThread();
 		}
@@ -155,6 +186,18 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
 		SwerveModuleConstants<?, ?, ?>... modules
 	) {
 		super(drivetrainConstants, odometryUpdateFrequency, modules);
+
+		// Initialize Shuffleboard layouts
+        drivetrainLayout = swerveTab.getLayout("Drivetrain Status", BuiltInLayouts.kList)
+            .withSize(2, 4)
+            .withPosition(0, 0);
+            
+        trackingLayout = swerveTab.getLayout("AprilTag Tracking", BuiltInLayouts.kList)
+            .withSize(2, 3)
+            .withPosition(2, 0);
+            
+        configureShuffleboardData();
+
 		if (Utils.isSimulation()) {
 			startSimThread();
 		}
@@ -188,6 +231,18 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
 		SwerveModuleConstants<?, ?, ?>... modules
 	) {
 		super(drivetrainConstants, odometryUpdateFrequency, odometryStandardDeviation, visionStandardDeviation, modules);
+
+		// Initialize Shuffleboard layouts
+        drivetrainLayout = swerveTab.getLayout("Drivetrain Status", BuiltInLayouts.kList)
+            .withSize(2, 4)
+            .withPosition(0, 0);
+            
+        trackingLayout = swerveTab.getLayout("AprilTag Tracking", BuiltInLayouts.kList)
+            .withSize(2, 3)
+            .withPosition(2, 0);
+            
+        configureShuffleboardData();
+
 		if (Utils.isSimulation()) {
 			startSimThread();
 		}
@@ -223,6 +278,27 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
 		}
 	}
 
+	private void configureShuffleboardData() {
+        // Drivetrain status
+        drivetrainLayout.addNumber("Robot X", () -> getState().Pose.getX())
+            .withPosition(0, 0);
+        drivetrainLayout.addNumber("Robot Y", () -> getState().Pose.getY())
+            .withPosition(0, 1);
+        drivetrainLayout.addNumber("Robot Heading", () -> getState().Pose.getRotation().getDegrees())
+            .withPosition(0, 2);
+        drivetrainLayout.addNumber("Robot Speed", () -> 
+            Math.hypot(getState().Speeds.vxMetersPerSecond, getState().Speeds.vyMetersPerSecond))
+            .withPosition(0, 3);
+            
+        // AprilTag tracking status
+        trackingLayout.addNumber("Target Distance", () -> targetDistanceSub.get())
+            .withPosition(0, 0);
+        trackingLayout.addNumber("Current Distance", () -> currentDistanceSub.get())
+            .withPosition(0, 1);
+        trackingLayout.addNumber("Angle to Target", () -> angleToTargetSub.get())
+            .withPosition(0, 2);
+    }
+
 	/**
 	 * Returns a command that applies the specified control request to this swerve drivetrain.
 	 *
@@ -254,6 +330,25 @@ public class CommandSwerveDrivetrain extends TunerSwerveDrivetrain implements Su
 	public Command sysIdDynamic(SysIdRoutine.Direction direction) {
 		return m_sysIdRoutineToApply.dynamic(direction);
 	}
+
+	public Command createAprilTagTrackingCommand() {
+        return run(() -> {
+            if (targetDistanceSub.get() > 0) {
+                double distanceError = currentDistanceSub.get() - targetDistanceSub.get();
+                double angleError = angleToTargetSub.get();
+                // Convert errors to robot-relative velocities
+                double vx = -distanceError * 0.5; // Proportional control for distance
+                double vy = angleError * 0.02;    // Proportional control for alignment
+                double omega = -angleError * 0.02; // Proportional control for rotation
+                // Apply velocities using robot-centric control
+                setControl(new SwerveRequest.RobotCentric()
+                    .withVelocityX(vx)
+                    .withVelocityY(vy)
+                    .withRotationalRate(omega));
+            }
+        });
+    }
+
 
 	@Override
 	public void periodic() {
