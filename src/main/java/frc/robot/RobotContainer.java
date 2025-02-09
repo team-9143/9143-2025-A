@@ -56,7 +56,7 @@ public class RobotContainer {
 
 	public RobotContainer() {
 		// Create auto chooser and put it on the Auto tab in Shuffleboard
-		autoChooser = AutoBuilder.buildAutoChooser("Example Auto");
+		autoChooser = AutoBuilder.buildAutoChooser("Test Auto");
 		autoTab.add("Auto Mode", autoChooser)
 			.withSize(2, 1)
 			.withPosition(0, 0);
