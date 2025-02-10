@@ -7,25 +7,25 @@
         {
           "type": "path",
           "data": {
-            "pathName": "Right Station - Right Reef"
+            "pathName": "Left Station - Front Left Reef"
           }
         },
         {
           "type": "path",
           "data": {
-            "pathName": "Right Reef - Right Station"
+            "pathName": "Front Left Reef - Left Station"
           }
         },
         {
           "type": "path",
           "data": {
-            "pathName": "Right Station - Mid Reef"
+            "pathName": "Left Station - Front Mid Reef"
           }
         },
         {
           "type": "path",
           "data": {
-            "pathName": "Mid Reef - Right Station"
+            "pathName": "Front Mid Reef - Left Station"
           }
         }
       ]

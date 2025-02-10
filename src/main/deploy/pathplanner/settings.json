@@ -3,10 +3,13 @@
   "robotLength": 0.9271,
   "holonomicMode": true,
   "pathFolders": [
-    "Starting Mid Reef",
-    "Starting Left Reef",
+    "Starting Back Left Reef",
+    "Starting Back Mid Reef",
+    "Starting Back Right Reef",
+    "Starting Front Left Reef",
+    "Starting Front Mid Reef",
+    "Starting Front Right Reef",
     "Starting Left Station",
-    "Starting Right Reef",
     "Starting Right Station"
   ],
   "autoFolders": [],
