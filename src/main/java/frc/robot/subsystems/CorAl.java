@@ -1,16 +1,20 @@
-/*
 package frc.robot.subsystems;
 
 import com.ctre.phoenix6.hardware.TalonFX;
 import com.ctre.phoenix6.signals.NeutralModeValue;
+
+import java.util.Map;
+
 import com.ctre.phoenix6.configs.TalonFXConfiguration;
 import com.ctre.phoenix6.controls.PositionVoltage;
 import com.ctre.phoenix6.controls.DutyCycleOut;
 
+import edu.wpi.first.wpilibj.shuffleboard.BuiltInWidgets;
 import edu.wpi.first.wpilibj.shuffleboard.Shuffleboard;
 import edu.wpi.first.wpilibj.shuffleboard.ShuffleboardTab;
 import edu.wpi.first.wpilibj.shuffleboard.SimpleWidget;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
+
 import frc.robot.Constants.CorAlConstants;
 
 public class CorAl extends SubsystemBase {
@@ -72,6 +76,7 @@ public class CorAl extends SubsystemBase {
 			config.Slot0.kP = CorAlConstants.CORAL_PIVOT_kP;
 			config.Slot0.kI = CorAlConstants.CORAL_PIVOT_kI;
 			config.Slot0.kD = CorAlConstants.CORAL_PIVOT_kD;
+    		config.Slot0.GravityType = com.ctre.phoenix6.signals.GravityTypeValue.Arm_Cosine;
 			
 			// Motion Magic configuration if needed
 			config.MotionMagic.MotionMagicAcceleration = 100;
@@ -83,27 +88,64 @@ public class CorAl extends SubsystemBase {
 	}
 
 	private void configureShuffleboard() {
-		// Status indicators
-		tab.addNumber("Pivot Angle", this::getPivotAngle)
-		   .withPosition(0, 1)
-		   .withSize(2, 1);
-		
-		tab.addNumber("Pivot Current", () -> pivotMotor.getSupplyCurrent().getValueAsDouble())
-		   .withPosition(2, 1)
-		   .withSize(2, 1);
-		   
-		tab.addNumber("Intake Current", () -> intakeMotor.getSupplyCurrent().getValueAsDouble())
-		   .withPosition(4, 1)
-		   .withSize(2, 1);
+		// Control Panel (Row 0)
+		tab.add("Target Angle", 0)
+			.withWidget(BuiltInWidgets.kNumberSlider)
+			.withProperties(Map.of(
+				"Min", CorAlConstants.CORAL_PIVOT_MIN_ANGLE,
+				"Max", CorAlConstants.CORAL_PIVOT_MAX_ANGLE))
+			.withPosition(0, 0)
+			.withSize(2, 1);
 
-		// Status booleans
-		tab.addBoolean("Pivot Out of Bounds", this::isPivotOutOfBounds)
-		   .withPosition(0, 2)
-		   .withSize(2, 1);
-		   
-		tab.addBoolean("At Target Angle", this::isAtTargetAngle)
-		   .withPosition(2, 2)
-		   .withSize(2, 1);
+		tab.add("Manual Mode", false)
+			.withWidget(BuiltInWidgets.kToggleSwitch)
+			.withPosition(2, 0)
+			.withSize(1, 1);
+
+		tab.add("Manual Speed", 0.0)
+			.withWidget(BuiltInWidgets.kNumberSlider)
+			.withProperties(Map.of("Min", -1.0, "Max", 1.0))
+			.withPosition(3, 0)
+			.withSize(2, 1);
+
+		// Status Panel (Row 1)
+		tab.addNumber("Current Angle", this::getPivotAngle)
+			.withWidget(BuiltInWidgets.kDial)
+			.withProperties(Map.of(
+				"Min", CorAlConstants.CORAL_PIVOT_MIN_ANGLE,
+				"Max", CorAlConstants.CORAL_PIVOT_MAX_ANGLE))
+			.withPosition(0, 1)
+			.withSize(2, 2);
+
+		tab.addBoolean("At Target", this::isAtTargetAngle)
+			.withWidget(BuiltInWidgets.kBooleanBox)
+			.withPosition(2, 1)
+			.withSize(1, 1);
+
+		// Motor Status (Row 2)
+		tab.addNumber("Pivot Current", () -> pivotMotor.getSupplyCurrent().getValueAsDouble())
+			.withWidget(BuiltInWidgets.kGraph)
+			.withPosition(0, 3)
+			.withSize(2, 2);
+
+		tab.addNumber("Intake Current", () -> intakeMotor.getSupplyCurrent().getValueAsDouble())
+			.withWidget(BuiltInWidgets.kGraph)
+			.withPosition(2, 3)
+			.withSize(2, 2);
+
+		// PID Tuning (Row 4)
+		tab.addNumber("P Gain", () -> CorAlConstants.CORAL_PIVOT_kP)
+			.withPosition(0, 5)
+			.withSize(1, 1);
+		tab.addNumber("I Gain", () -> CorAlConstants.CORAL_PIVOT_kI)
+			.withPosition(1, 5)
+			.withSize(1, 1);
+		tab.addNumber("D Gain", () -> CorAlConstants.CORAL_PIVOT_kD)
+			.withPosition(2, 5)
+			.withSize(1, 1);
+		tab.addNumber("G Gain", () -> CorAlConstants.CORAL_PIVOT_kG)
+			.withPosition(3, 5)
+			.withSize(1, 1);
 	}
 
 	@Override
@@ -125,8 +167,10 @@ public class CorAl extends SubsystemBase {
 		targetAngle = Math.min(Math.max(targetAngle, 
 			CorAlConstants.CORAL_PIVOT_MIN_ANGLE),
 			CorAlConstants.CORAL_PIVOT_MAX_ANGLE);
+
+		double gravityFF = CorAlConstants.CORAL_PIVOT_kG * Math.cos(Math.toRadians(targetAngle));
 		
-		pivotMotor.setControl(positionRequest.withPosition(targetAngle));
+		pivotMotor.setControl(positionRequest.withPosition(targetAngle).withFeedForward(gravityFF));
 		pivotTargetAngleWidget.getEntry().setDouble(targetAngle);
 	}
 
@@ -182,4 +226,3 @@ public class CorAl extends SubsystemBase {
 			CorAlConstants.CORAL_PIVOT_ALLOWED_ERROR;
 	}
 }
-*/

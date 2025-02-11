@@ -67,13 +67,14 @@ public final class Constants {
 		public static final int CORAL_INTAKE_CURRENT_LIMIT = 20; // Current limit for the intake motor (in amps)
 
 		// Encoder Conversion Factors
-		public static final double CORAL_PIVOT_POSITION_CONVERSION = 360.0; // Convert encoder rotations to degrees
-		public static final double CORAL_PIVOT_VELOCITY_CONVERSION = 360.0; // Convert encoder rotations to degrees per second
+		public static final double CORAL_PIVOT_POSITION_CONVERSION = 360.0 / 2241.6; // Convert encoder ticks to degrees
+		public static final double CORAL_PIVOT_VELOCITY_CONVERSION = 360.0 / 2241.6; // Convert encoder RPS to degrees per second
 
 		// PID Constants
-		public static final double CORAL_PIVOT_kP = 0.02; // Proportional gain for the pivot motor's PID controller
+		public static final double CORAL_PIVOT_kP = 12.0; // Proportional gain for the pivot motor's PID controller
 		public static final double CORAL_PIVOT_kI = 0.0; // Integral gain for the pivot motor's PID controller
-		public static final double CORAL_PIVOT_kD = 0.0; // Derivative gain for the pivot motor's PID controller
+		public static final double CORAL_PIVOT_kD = 0.5; // Derivative gain for the pivot motor's PID controller
+		public static final double CORAL_PIVOT_kG = 0.2; // Gravity compensation feed forward
 
 		// Pivot Angle Limits
 		public static final double CORAL_PIVOT_MIN_ANGLE = 0.0; // Minimum allowed angle for the pivot (in degrees)
