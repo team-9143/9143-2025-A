@@ -1,3 +1,4 @@
+/*
 package frc.robot.subsystems;
 
 import com.ctre.phoenix6.hardware.TalonFX;
@@ -181,3 +182,4 @@ public class CorAl extends SubsystemBase {
 			CorAlConstants.CORAL_PIVOT_ALLOWED_ERROR;
 	}
 }
+*/

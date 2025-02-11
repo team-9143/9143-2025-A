@@ -26,17 +26,17 @@ public final class Constants {
 		public static final int ELEVATOR_CURRENT_LIMIT = 60; // Current limit for the elevator motors (in amps)
 
 		// Encoder Conversion Factors
-		public static final double ELEVATOR_POSITION_CONVERSION = 1.0; // Convert encoder ticks to position units
-		public static final double ELEVATOR_VELOCITY_CONVERSION = 1.0; // Convert encoder ticks to velocity units
+		public static final double ELEVATOR_POSITION_CONVERSION = 0.0206; // Convert encoder ticks to position units
+		public static final double ELEVATOR_VELOCITY_CONVERSION = 0.0206 / 60.0; // Convert encoder ticks to velocity units
 
 		// PID Constants
-		public static final double ELEVATOR_kP = 0.1; // Proportional gain for the elevator's PID controller
-		public static final double ELEVATOR_kI = 0.0; // Integral gain for the elevator's PID controller
-		public static final double ELEVATOR_kD = 0.0; // Derivative gain for the elevator's PID controller
+		public static final double ELEVATOR_kP = 0.75; // Proportional gain for the elevator's PID controller
+		public static final double ELEVATOR_kI = 0.0001; // Integral gain for the elevator's PID controller
+		public static final double ELEVATOR_kD = 0.05; // Derivative gain for the elevator's PID controller
 
 		// Position Limits
 		public static final double ELEVATOR_MIN_POSITION = 0.0; // Minimum allowed position for the elevator (in inches)
-		public static final double ELEVATOR_MAX_POSITION = 100.0; // Maximum allowed position for the elevator (in inches)
+		public static final double ELEVATOR_MAX_POSITION = 65.0; // Maximum allowed position for the elevator (in inches)
 
 		// Allowed Error
 		public static final double ELEVATOR_ALLOWED_ERROR = 1.0; // Allowed error threshold for the elevator to be "at target"
@@ -47,10 +47,10 @@ public final class Constants {
 
 		// Preset Heights
 		public static final double ELEVATOR_BASE_HEIGHT = 0.0;
-		public static final double ELEVATOR_CORAL_L1_HEIGHT = 20.0;
-		public static final double ELEVATOR_CORAL_L2_HEIGHT = 40.0;
-		public static final double ELEVATOR_CORAL_L3_HEIGHT = 60.0;
-		public static final double ELEVATOR_CORAL_L4_HEIGHT = 80.0;
+		public static final double ELEVATOR_CORAL_L1_HEIGHT = 15.0;
+		public static final double ELEVATOR_CORAL_L2_HEIGHT = 30.0;
+		public static final double ELEVATOR_CORAL_L3_HEIGHT = 45.0;
+		public static final double ELEVATOR_CORAL_L4_HEIGHT = 60.0;
 	}
 	
 	public final class CorAlConstants {

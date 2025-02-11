@@ -1,3 +1,4 @@
+/*
 package frc.robot.subsystems;
 
 import com.revrobotics.RelativeEncoder;
@@ -189,3 +190,4 @@ public class AlLow extends SubsystemBase {
 		return Math.abs(targetAngle - currentAngle) <= AlLowConstants.ALLOW_PIVOT_ALLOWED_ERROR;
 	}
 }
+*/
