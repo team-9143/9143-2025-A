@@ -1,4 +1,3 @@
-/*
 package frc.robot.subsystems;
 
 import java.util.*;
@@ -102,6 +101,8 @@ public class Vision extends SubsystemBase {
         // Initialize each Limelight
         for (int i = 0; i < VisionConstants.LIMELIGHT_NAMES.length; i++) {
             String name = VisionConstants.LIMELIGHT_NAMES[i];
+
+            limelights[i] = NetworkTableInstance.getDefault().getTable("limelight-" + name);
 
             ShuffleboardLayout layout = visionTab.getLayout(name, BuiltInLayouts.kList)
                 .withSize(VisionConstants.ShuffleboardLayout.VISION_TAB_WIDTH, 
@@ -279,4 +280,3 @@ public class Vision extends SubsystemBase {
         }
 	}
 }
-*/

@@ -22,9 +22,9 @@ import frc.robot.Constants.ElevatorConstants;
 
 import frc.robot.subsystems.CommandSwerveDrivetrain;
 import frc.robot.subsystems.Elevator;
-//import frc.robot.subsystems.CorAl;
+import frc.robot.subsystems.CorAl;
 //import frc.robot.subsystems.AlLow;
-//import frc.robot.subsystems.Vision;
+import frc.robot.subsystems.Vision;
 
 public class RobotContainer {
 	private double MaxSpeed = TunerConstants.kSpeedAt12Volts.in(MetersPerSecond); // kSpeedAt12Volts desired top speed
@@ -47,9 +47,9 @@ public class RobotContainer {
 	public final CommandSwerveDrivetrain drivetrain = TunerConstants.createDrivetrain();
 
 	private final Elevator elevator = new Elevator();
-	//private final CorAl coral = new CorAl();
+	private final CorAl coral = new CorAl();
 	//private final AlLow allow = new AlLow();
-	// private final Vision vision = new Vision();
+	private final Vision vision = new Vision();
 
 	private final SendableChooser<Command> autoChooser;
 	private final ShuffleboardTab autoTab = Shuffleboard.getTab("Auto");
@@ -99,7 +99,6 @@ public class RobotContainer {
 		driver_controller.leftBumper().onTrue(drivetrain.runOnce(() -> drivetrain.seedFieldCentric()));
 
 		// Toggle AprilTag tracking with the Y button
-        /*
 		driver_controller.y().onTrue(Commands.runOnce(() -> {
             vision.toggleTracking();
             if (vision.isTrackingEnabled()) {
@@ -108,7 +107,6 @@ public class RobotContainer {
                 drivetrain.getCurrentCommand().cancel();
             }
         }));
-		*/
 
 		drivetrain.registerTelemetry(logger::telemeterize);
 		
@@ -213,8 +211,8 @@ public class RobotContainer {
 	public void disabledInit() {
 		// Stop all subsystems when disabled
 		elevator.stopElevator();
-		//coral.stopPivot();
-		//coral.stopRoller();
+		coral.stopPivot();
+		coral.stopRoller();
 		//allow.stopPivot();
 		//allow.stopRoller();
 	}
