@@ -1,6 +1,7 @@
 package frc.robot.subsystems;
 
 import com.revrobotics.RelativeEncoder;
+import com.revrobotics.spark.ClosedLoopSlot;
 import com.revrobotics.spark.SparkBase.ControlType;
 import com.revrobotics.spark.SparkBase.PersistMode;
 import com.revrobotics.spark.SparkBase.ResetMode;
@@ -11,10 +12,14 @@ import com.revrobotics.spark.config.ClosedLoopConfig.FeedbackSensor;
 import com.revrobotics.spark.config.SparkBaseConfig.IdleMode;
 import com.revrobotics.spark.config.SparkMaxConfig;
 
+import edu.wpi.first.wpilibj.shuffleboard.BuiltInWidgets;
 import edu.wpi.first.wpilibj.shuffleboard.Shuffleboard;
 import edu.wpi.first.wpilibj.shuffleboard.ShuffleboardTab;
 import edu.wpi.first.wpilibj.shuffleboard.SimpleWidget;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
+
+import java.util.Map;
+
 import frc.robot.Constants.ElevatorConstants;
 
 public class Elevator extends SubsystemBase {
@@ -28,10 +33,10 @@ public class Elevator extends SubsystemBase {
 	private final SparkMaxConfig leftConfig;
 	private final SparkMaxConfig rightConfig;
 	private final ShuffleboardTab tab;
-	private final SimpleWidget targetPositionWidget;
-	private final SimpleWidget manualControlWidget;
-	private final SimpleWidget manualSpeedWidget;
-	private final SimpleWidget resetEncoderWidget;
+	private SimpleWidget targetPositionWidget;
+	private SimpleWidget manualControlWidget;
+	private SimpleWidget manualSpeedWidget;
+	private SimpleWidget resetEncoderWidget;
 
 	public Elevator() {
 		// Initialize motors
@@ -84,6 +89,7 @@ public class Elevator extends SubsystemBase {
 			.p(ElevatorConstants.ELEVATOR_kP)
 			.i(ElevatorConstants.ELEVATOR_kI)
 			.d(ElevatorConstants.ELEVATOR_kD)
+			.velocityFF(ElevatorConstants.ELEVATOR_kF)
 			.outputRange(-1, 1);
 
 		// Apply configuration
@@ -91,21 +97,66 @@ public class Elevator extends SubsystemBase {
 	}
 
 	private void configureShuffleboard() {
-		// Status indicators
-		tab.addNumber("Left Encoder Position", leftEncoder::getPosition)
-		   .withPosition(0, 1)
-		   .withSize(2, 1);
-		tab.addNumber("Right Encoder Position", rightEncoder::getPosition)
-		   .withPosition(2, 1)
-		   .withSize(2, 1);
+		// Control widgets
+		targetPositionWidget = tab.add("Target Position", 0.0)
+			.withWidget(BuiltInWidgets.kNumberSlider)
+			.withProperties(Map.of(
+				"Min", ElevatorConstants.ELEVATOR_MIN_POSITION,
+				"Max", ElevatorConstants.ELEVATOR_MAX_POSITION))
+			.withPosition(0, 0)
+			.withSize(2, 1);
 
-		// Status booleans
-		tab.addBoolean("At Target Position", this::isAtTargetPosition)
-		   .withPosition(4, 1)
-		   .withSize(2, 1);
-		tab.addBoolean("Manual Control Active", () -> manualControlWidget.getEntry().getBoolean(false))
-		   .withPosition(6, 1)
-		   .withSize(2, 1);
+		manualControlWidget = tab.add("Manual Mode", false)
+			.withWidget(BuiltInWidgets.kToggleSwitch)
+			.withPosition(2, 0)
+			.withSize(1, 1);
+
+		manualSpeedWidget = tab.add("Manual Speed", 0.0)
+			.withWidget(BuiltInWidgets.kNumberSlider)
+			.withProperties(Map.of("Min", -1.0, "Max", 1.0))
+			.withPosition(3, 0)
+			.withSize(2, 1);
+
+		resetEncoderWidget = tab.add("Reset Encoders", false)
+			.withWidget(BuiltInWidgets.kToggleButton)
+			.withPosition(5, 0)
+			.withSize(1, 1);
+
+		// Status widgets
+		tab.addNumber("Current Height", this::getCurrentPosition)
+			.withWidget(BuiltInWidgets.kDial)
+			.withProperties(Map.of(
+				"Min", ElevatorConstants.ELEVATOR_MIN_POSITION,
+				"Max", ElevatorConstants.ELEVATOR_MAX_POSITION))
+			.withPosition(0, 1)
+			.withSize(2, 2);
+
+		tab.addBoolean("At Target", this::isAtTargetPosition)
+			.withWidget(BuiltInWidgets.kBooleanBox)
+			.withPosition(2, 1)
+			.withSize(1, 1);
+
+		tab.addNumber("Left Motor Current", leftMotor::getOutputCurrent)
+			.withPosition(3, 1)
+			.withSize(1, 1);
+			
+		tab.addNumber("Right Motor Current", rightMotor::getOutputCurrent)
+			.withPosition(4, 1)
+			.withSize(1, 1);
+
+		// PID values
+		tab.addNumber("P Gain", () -> ElevatorConstants.ELEVATOR_kP)
+			.withPosition(6, 0)
+			.withSize(1, 1);
+		tab.addNumber("I Gain", () -> ElevatorConstants.ELEVATOR_kI)
+			.withPosition(6, 1)
+			.withSize(1, 1);
+		tab.addNumber("D Gain", () -> ElevatorConstants.ELEVATOR_kD)
+			.withPosition(7, 0)
+			.withSize(1, 1);
+		tab.addNumber("F Gain", () -> ElevatorConstants.ELEVATOR_kF)
+			.withPosition(7, 1)
+			.withSize(1, 1);
 	}
 
 	@Override
@@ -133,8 +184,14 @@ public class Elevator extends SubsystemBase {
 		targetPosition = Math.min(Math.max(targetPosition, ElevatorConstants.ELEVATOR_MIN_POSITION),
 			ElevatorConstants.ELEVATOR_MAX_POSITION);
 
-		leftController.setReference(targetPosition, ControlType.kPosition);
-		rightController.setReference(targetPosition, ControlType.kPosition);
+		// Calculate feed forward based on gravity compensation
+		double ff = ElevatorConstants.ELEVATOR_kF;  // Static feed forward for gravity
+
+		// Create a ClosedLoopSlot object for slot 0
+    	ClosedLoopSlot slot = ClosedLoopSlot.kSlot0;
+
+		leftController.setReference(targetPosition, ControlType.kPosition, slot, ff);
+		rightController.setReference(targetPosition, ControlType.kPosition, slot, ff);
 		targetPositionWidget.getEntry().setDouble(targetPosition);
 	}
 

@@ -26,20 +26,21 @@ public final class Constants {
 		public static final int ELEVATOR_CURRENT_LIMIT = 60; // Current limit for the elevator motors (in amps)
 
 		// Encoder Conversion Factors
-		public static final double ELEVATOR_POSITION_CONVERSION = 0.0206; // Convert encoder ticks to position units
-		public static final double ELEVATOR_VELOCITY_CONVERSION = 0.0206 / 60.0; // Convert encoder ticks to velocity units
+		public static final double ELEVATOR_POSITION_CONVERSION = 0.0146; // Convert encoder ticks to position units
+		public static final double ELEVATOR_VELOCITY_CONVERSION = 0.0146 / 60.0; // Convert RPM to inches per second
 
 		// PID Constants
-		public static final double ELEVATOR_kP = 0.75; // Proportional gain for the elevator's PID controller
-		public static final double ELEVATOR_kI = 0.0001; // Integral gain for the elevator's PID controller
-		public static final double ELEVATOR_kD = 0.05; // Derivative gain for the elevator's PID controller
+		public static final double ELEVATOR_kP = 1.0; // Proportional gain for the elevator's PID controller
+		public static final double ELEVATOR_kI = 0.0002; // Integral gain for the elevator's PID controller
+		public static final double ELEVATOR_kD = 0.08; // Derivative gain for the elevator's PID controller
+		public static final double ELEVATOR_kF = 0.05; // Feed forward for gravity compensation
 
 		// Position Limits
 		public static final double ELEVATOR_MIN_POSITION = 0.0; // Minimum allowed position for the elevator (in inches)
-		public static final double ELEVATOR_MAX_POSITION = 65.0; // Maximum allowed position for the elevator (in inches)
+		public static final double ELEVATOR_MAX_POSITION = 20.5; // Maximum allowed position for the elevator (in inches)
 
 		// Allowed Error
-		public static final double ELEVATOR_ALLOWED_ERROR = 1.0; // Allowed error threshold for the elevator to be "at target"
+		public static final double ELEVATOR_ALLOWED_ERROR = 0.5; // Allowed error threshold for the elevator to be "at target"
 
 		// Manual Control Parameters
 		public static final double ELEVATOR_MANUAL_CONTROL_DEADBAND = 0.2; // Deadband for manual elevator control
@@ -47,10 +48,9 @@ public final class Constants {
 
 		// Preset Heights
 		public static final double ELEVATOR_BASE_HEIGHT = 0.0;
-		public static final double ELEVATOR_CORAL_L1_HEIGHT = 15.0;
-		public static final double ELEVATOR_CORAL_L2_HEIGHT = 30.0;
-		public static final double ELEVATOR_CORAL_L3_HEIGHT = 45.0;
-		public static final double ELEVATOR_CORAL_L4_HEIGHT = 60.0;
+		public static final double ELEVATOR_CORAL_L2_HEIGHT = 2.0;
+		public static final double ELEVATOR_CORAL_L3_HEIGHT = 8.0;
+		public static final double ELEVATOR_CORAL_L4_HEIGHT = 20.5;
 	}
 	
 	public final class CorAlConstants {
@@ -77,10 +77,10 @@ public final class Constants {
 
 		// Pivot Angle Limits
 		public static final double CORAL_PIVOT_MIN_ANGLE = 0.0; // Minimum allowed angle for the pivot (in degrees)
-		public static final double CORAL_PIVOT_MAX_ANGLE = 90.0; // Maximum allowed angle for the pivot (in degrees)
+		public static final double CORAL_PIVOT_MAX_ANGLE = 180.0; // Maximum allowed angle for the pivot (in degrees)
 
 		// Allowed Error
-		public static final double CORAL_PIVOT_ALLOWED_ERROR = 1.0; // Allowed error threshold for the pivot to be "at target"
+		public static final double CORAL_PIVOT_ALLOWED_ERROR = 0.5; // Allowed error threshold for the pivot to be "at target"
 
 		// Manual Control Parameters
 		public static final double CORAL_MANUAL_CONTROL_DEADBAND = 0.2; // Deadband for manual pivot control
@@ -88,11 +88,11 @@ public final class Constants {
 
 		// Pivot Preset Angles
 		public static final double CORAL_BASE_ANGLE = 0.0;
-		public static final double CORAL_LOW_ANGLE = 5.0;
-		public static final double CORAL_MID_ANGLE = 10.0;
-		public static final double CORAL_HIGH_ANGLE = 15.0;
-		public static final double ALGAE_INTAKE_ANGLE = 20.0;
-		public static final double ALGAE_SCORE_ANGLE = 25.0;
+		public static final double CORAL_LOW_ANGLE = 30.0;
+		public static final double CORAL_MID_ANGLE = 17.4;
+		public static final double CORAL_HIGH_ANGLE = 0.0;
+		public static final double ALGAE_INTAKE_ANGLE = 180.0;
+		public static final double ALGAE_SCORE_ANGLE = 135.0;
 
 		// Roller Speeds
 		public static final double CORAL_INTAKE_SPEED = 0.5;
