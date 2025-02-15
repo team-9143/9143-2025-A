@@ -97,6 +97,7 @@ public class Elevator extends SubsystemBase {
 	}
 
 	private void configureShuffleboard() {
+		/*
 		// Control widgets
 		targetPositionWidget = tab.add("Target Position", 0.0)
 			.withWidget(BuiltInWidgets.kNumberSlider)
@@ -157,6 +158,7 @@ public class Elevator extends SubsystemBase {
 		tab.addNumber("F Gain", () -> ElevatorConstants.ELEVATOR_kF)
 			.withPosition(7, 1)
 			.withSize(1, 1);
+			*/
 	}
 
 	@Override

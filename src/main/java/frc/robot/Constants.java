@@ -33,7 +33,7 @@ public final class Constants {
 		public static final double ELEVATOR_kP = 1.0; // Proportional gain for the elevator's PID controller
 		public static final double ELEVATOR_kI = 0.0002; // Integral gain for the elevator's PID controller
 		public static final double ELEVATOR_kD = 0.08; // Derivative gain for the elevator's PID controller
-		public static final double ELEVATOR_kF = 0.05; // Feed forward for gravity compensation
+		public static final double ELEVATOR_kF = 0.15; // Feed forward for gravity compensation
 
 		// Position Limits
 		public static final double ELEVATOR_MIN_POSITION = 0.0; // Minimum allowed position for the elevator (in inches)

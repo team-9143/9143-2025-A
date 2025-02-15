@@ -22,7 +22,7 @@ import frc.robot.Constants.ElevatorConstants;
 
 import frc.robot.subsystems.CommandSwerveDrivetrain;
 import frc.robot.subsystems.Elevator;
-import frc.robot.subsystems.CorAl;
+//import frc.robot.subsystems.CorAl;
 //import frc.robot.subsystems.AlLow;
 import frc.robot.subsystems.Vision;
 
@@ -47,7 +47,7 @@ public class RobotContainer {
 	public final CommandSwerveDrivetrain drivetrain = TunerConstants.createDrivetrain();
 
 	private final Elevator elevator = new Elevator();
-	private final CorAl coral = new CorAl();
+	//private final CorAl coral = new CorAl();
 	//private final AlLow allow = new AlLow();
 	private final Vision vision = new Vision();
 
@@ -70,9 +70,9 @@ public class RobotContainer {
 		drivetrain.setDefaultCommand(
 			// Drivetrain will execute this command periodically
 			drivetrain.applyRequest(() ->
-				drive.withVelocityX(-driver_controller.getLeftY() * MaxSpeed) // Drive forward with negative Y (forward)
-					.withVelocityY(-driver_controller.getLeftX() * MaxSpeed) // Drive left with negative X (left)
-					.withRotationalRate(-driver_controller.getRightX() * MaxAngularRate) // Drive counterclockwise with negative X (left)
+				drive.withVelocityX(driver_controller.getLeftY() * MaxSpeed * 0.5)
+					.withVelocityY(driver_controller.getLeftX() * MaxSpeed * 0.5)
+					.withRotationalRate(driver_controller.getRightX() * MaxAngularRate)
 			)
 		);
 
@@ -211,8 +211,8 @@ public class RobotContainer {
 	public void disabledInit() {
 		// Stop all subsystems when disabled
 		elevator.stopElevator();
-		coral.stopPivot();
-		coral.stopRoller();
+		//coral.stopPivot();
+		//coral.stopRoller();
 		//allow.stopPivot();
 		//allow.stopRoller();
 	}
