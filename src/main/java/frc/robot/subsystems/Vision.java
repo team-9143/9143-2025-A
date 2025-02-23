@@ -1,282 +1,139 @@
 package frc.robot.subsystems;
 
-import java.util.*;
-import edu.wpi.first.networktables.*;
-import edu.wpi.first.wpilibj.shuffleboard.*;
+import java.util.Optional;
+
+import edu.wpi.first.math.geometry.Pose2d;
+import edu.wpi.first.networktables.GenericEntry;
+import edu.wpi.first.wpilibj.shuffleboard.Shuffleboard;
+import edu.wpi.first.wpilibj.shuffleboard.ShuffleboardTab;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 
+import frc.robot.LimelightHelpers;
 import frc.robot.Constants.VisionConstants;
 
 public class Vision extends SubsystemBase {
-    private final NetworkTable[] limelights;
-    private final Map<Integer, Double> tagDistances = new HashMap<>();
-    private final Map<Integer, Double> tagHorizontalOffsets = new HashMap<>();
-    private boolean trackingEnabled = false;
-    
-    // Network Tables
-    private final NetworkTable trackingTable;
-    private final DoubleSubscriber targetDistanceSub;
-    private final DoubleSubscriber currentDistanceSub;
-    private final DoubleSubscriber angleToTargetSub;
-    private final DoubleSubscriber targetHorizontalOffsetSub;
-    private final DoubleSubscriber currentHorizontalOffsetSub;
-    private final DoublePublisher targetDistancePub;
-    private final DoublePublisher currentDistancePub;
-    private final DoublePublisher angleToTargetPub;
-    private final DoublePublisher targetHorizontalOffsetPub;
-    private final DoublePublisher currentHorizontalOffsetPub;
-    
-    private final ShuffleboardTab visionTab;
-    private final List<ShuffleboardLayout> limelightLayouts = new ArrayList<>();
-    private final ShuffleboardLayout trackingLayout;
-    
-    // Network Table subscribers for each Limelight
-    private final List<DoubleSubscriber> tv_subs = new ArrayList<>();
-    private final List<DoubleSubscriber> tx_subs = new ArrayList<>();
-    private final List<DoubleSubscriber> ty_subs = new ArrayList<>();
-    private final List<DoubleSubscriber> ta_subs = new ArrayList<>();
-    private final List<DoubleSubscriber> tid_subs = new ArrayList<>();
-    private final List<DoubleSubscriber> pipeline_subs = new ArrayList<>();
-    private final List<DoubleSubscriber> poseX_subs = new ArrayList<>();
-    private final List<DoubleSubscriber> poseY_subs = new ArrayList<>();
-    private final List<DoubleSubscriber> poseZ_subs = new ArrayList<>();
+	private boolean trackingEnabled = false;
 
-    // Shuffleboard widgets to persist between updates
-    private final GenericEntry trackingEnabledWidget;
-    private final GenericEntry currentTagIdWidget;
-    private final GenericEntry targetDistanceWidget;
-    private final GenericEntry currentDistanceWidget;
-    private final GenericEntry angleToTargetWidget;
-    private final GenericEntry targetHorizontalOffsetWidget;
-    private final GenericEntry currentHorizontalOffsetWidget;
-    private final Map<String, List<GenericEntry>> limelightWidgets = new HashMap<>();
+	// Shuffleboard
+	private final ShuffleboardTab visionTab = Shuffleboard.getTab("Vision");
+	private final GenericEntry trackingEnabledWidget;
+	private final GenericEntry bestTagIdWidget;
+	private final GenericEntry bestTagDistanceWidget;
+	private final GenericEntry bestTagHorizontalOffsetWidget;
 
-    public Vision() {
-        // Initialize NetworkTables
-        limelights = new NetworkTable[VisionConstants.LIMELIGHT_NAMES.length];
+	public Vision() {
+		// Initialize Shuffleboard widgets
+		trackingEnabledWidget = visionTab.add("Tracking Enabled", false).getEntry();
+		bestTagIdWidget = visionTab.add("Best Tag ID", 0).getEntry();
+		bestTagDistanceWidget = visionTab.add("Best Tag Distance", 0.0).getEntry();
+		bestTagHorizontalOffsetWidget = visionTab.add("Best Tag Horizontal Offset", 0.0).getEntry();
 
-        // Initialize tracking NetworkTable and subscribers
-        trackingTable = NetworkTableInstance.getDefault().getTable(VisionConstants.NT_APRILTAG_TABLE);
-        targetDistanceSub = trackingTable.getDoubleTopic(VisionConstants.NT_TARGET_DISTANCE).subscribe(0.0);
-        currentDistanceSub = trackingTable.getDoubleTopic(VisionConstants.NT_CURRENT_DISTANCE).subscribe(0.0);
-        angleToTargetSub = trackingTable.getDoubleTopic(VisionConstants.NT_ANGLE_TO_TARGET).subscribe(0.0);
-        targetHorizontalOffsetSub = trackingTable.getDoubleTopic(VisionConstants.NT_TARGET_HORIZONTAL_OFFSET).subscribe(0.0);
-        currentHorizontalOffsetSub = trackingTable.getDoubleTopic(VisionConstants.NT_CURRENT_HORIZONTAL_OFFSET).subscribe(0.0);
-        
-        // Initialize publishers
-        targetDistancePub = trackingTable.getDoubleTopic(VisionConstants.NT_TARGET_DISTANCE).publish();
-        currentDistancePub = trackingTable.getDoubleTopic(VisionConstants.NT_CURRENT_DISTANCE).publish();
-        angleToTargetPub = trackingTable.getDoubleTopic(VisionConstants.NT_ANGLE_TO_TARGET).publish();
-        targetHorizontalOffsetPub = trackingTable.getDoubleTopic(VisionConstants.NT_TARGET_HORIZONTAL_OFFSET).publish();
-        currentHorizontalOffsetPub = trackingTable.getDoubleTopic(VisionConstants.NT_CURRENT_HORIZONTAL_OFFSET).publish();
+		// Set all Limelights to AprilTag pipeline (Pipeline 0)
+		for (String name : VisionConstants.LIMELIGHT_NAMES) {
+			LimelightHelpers.setPipelineIndex("limelight-" + name, 0);
+		}
+	}
 
-        // Create Shuffleboard layouts
-        visionTab = Shuffleboard.getTab("Vision");
+	// Toggles AprilTag tracking and controls Limelight LEDs.
+	public void toggleTracking() {
+		trackingEnabled = !trackingEnabled;
+		for (String name : VisionConstants.LIMELIGHT_NAMES) {
+			LimelightHelpers.setLEDMode_ForceOff("limelight-" + name);
+			if (trackingEnabled) {
+				LimelightHelpers.setLEDMode_ForceOn("limelight-" + name);
+			}
+		}
+	}
 
-        trackingLayout = visionTab.getLayout("Tracking Status", BuiltInLayouts.kList)
-            .withSize(VisionConstants.ShuffleboardLayout.TRACKING_WIDTH, 
-                VisionConstants.ShuffleboardLayout.TRACKING_HEIGHT)
-            .withPosition(0, 0)
-            .withProperties(Map.of("Label position", "LEFT"));
+    // Returns whether AprilTag tracking is enabled.
+	public boolean isTrackingEnabled() {
+		return trackingEnabled;
+	}
 
-        // Initialize persistent widgets for tracking data
-        trackingEnabledWidget = trackingLayout.add("Tracking Enabled", false).getEntry();
-        currentTagIdWidget = trackingLayout.add("Current Tag ID", 0).getEntry();
-        
-        // Create a nested layout for distance tracking
-        ShuffleboardLayout distanceLayout = trackingLayout.getLayout("Distance", BuiltInLayouts.kList)
-            .withProperties(Map.of("Label position", "LEFT"));
-        targetDistanceWidget = distanceLayout.add("Target", 0.0).getEntry();
-        currentDistanceWidget = distanceLayout.add("Current", 0.0).getEntry();
-        
-        // Create a nested layout for horizontal offset tracking
-        ShuffleboardLayout horizontalLayout = trackingLayout.getLayout("Horizontal Offset", BuiltInLayouts.kList)
-            .withProperties(Map.of("Label position", "LEFT"));
-        targetHorizontalOffsetWidget = horizontalLayout.add("Target", 0.0).getEntry();
-        currentHorizontalOffsetWidget = horizontalLayout.add("Current", 0.0).getEntry();
-        
-        // Add angle tracking
-        angleToTargetWidget = trackingLayout.add("Angle to Target", 0.0).getEntry();
-        
-        // Initialize each Limelight
-        for (int i = 0; i < VisionConstants.LIMELIGHT_NAMES.length; i++) {
-            String name = VisionConstants.LIMELIGHT_NAMES[i];
-
-            limelights[i] = NetworkTableInstance.getDefault().getTable("limelight-" + name);
-
-            ShuffleboardLayout layout = visionTab.getLayout(name, BuiltInLayouts.kList)
-                .withSize(VisionConstants.ShuffleboardLayout.VISION_TAB_WIDTH, 
-                    VisionConstants.ShuffleboardLayout.VISION_TAB_HEIGHT)
-                .withPosition(2 + (i * 2), 0)
-                .withProperties(Map.of("Label position", "LEFT"));
-            
-            // Initialize subscribers
-            tv_subs.add(limelights[i].getDoubleTopic("tv").subscribe(0));
-            tx_subs.add(limelights[i].getDoubleTopic("tx").subscribe(0));
-            ty_subs.add(limelights[i].getDoubleTopic("ty").subscribe(0));
-            ta_subs.add(limelights[i].getDoubleTopic("ta").subscribe(0));
-            tid_subs.add(limelights[i].getDoubleTopic("tid").subscribe(0));
-            pipeline_subs.add(limelights[i].getDoubleTopic("getpipe").subscribe(0));
-            poseX_subs.add(limelights[i].getDoubleTopic("targetpose_cameraspace").subscribe(0));
-            poseY_subs.add(limelights[i].getDoubleTopic("targetpose_cameraspace").subscribe(0));
-            poseZ_subs.add(limelights[i].getDoubleTopic("targetpose_cameraspace").subscribe(0));
-
-            List<GenericEntry> widgets = new ArrayList<>();
-            widgets.add(layout.add("Has Target", false).getEntry());
-            widgets.add(layout.add("Tx", 0.0).getEntry());
-            widgets.add(layout.add("Ty", 0.0).getEntry());
-            widgets.add(layout.add("Area", 0.0).getEntry());
-            widgets.add(layout.add("Tag ID", 0.0).getEntry());
-
-            limelightWidgets.put(name, widgets);
-            limelightLayouts.add(layout);
+    // Retrieves the horizontal offset for a specific AprilTag.
+    public double getTargetHorizontalOffset(int tagId) {
+        if (tagId >= 0 && tagId < VisionConstants.APRILTAG_OFFSETS.length) {
+            return VisionConstants.APRILTAG_OFFSETS[tagId][0];
         }
-
-        initializeTagDistances();
-        initializeTagOffsets();
+        return 0.0;
     }
 
-    private void initializeTagDistances() {
-        tagDistances.put(1, VisionConstants.TagDistances.TAG_1_DISTANCE);
-        tagDistances.put(2, VisionConstants.TagDistances.TAG_2_DISTANCE);
-        tagDistances.put(3, VisionConstants.TagDistances.TAG_3_DISTANCE);
-        tagDistances.put(4, VisionConstants.TagDistances.TAG_4_DISTANCE);
-    }
-
-    private void initializeTagOffsets() {
-        tagHorizontalOffsets.put(1, VisionConstants.TagDistances.TAG_1_HORIZONTAL);
-        tagHorizontalOffsets.put(2, VisionConstants.TagDistances.TAG_2_HORIZONTAL);
-        tagHorizontalOffsets.put(3, VisionConstants.TagDistances.TAG_3_HORIZONTAL);
-        tagHorizontalOffsets.put(4, VisionConstants.TagDistances.TAG_4_HORIZONTAL);
-    }
-
-    public double getTargetDistance() {
-        return targetDistanceSub.get();
-    }
-
-    public double getTargetHorizontalOffset() {
-        return targetHorizontalOffsetSub.get();
-    }
-    
-    public double getCurrentDistance() {
-        return currentDistanceSub.get();
-    }
-
-    public double getCurrentHorizontalOffset() {
-        return currentHorizontalOffsetSub.get();
-    }
-    
-    public double getAngleToTarget() {
-        return angleToTargetSub.get();
-    }
-    
-    public void setTagDistance(int tagId, double distance) {
-        tagDistances.put(tagId, distance);
-    }
-
-    public void setTagHorizontalOffset(int tagId, double offset) {
-        tagHorizontalOffsets.put(tagId, offset);
-    }
-    
-    public void toggleTracking() {
-        trackingEnabled = !trackingEnabled;
-    }
-    
-    public boolean isTrackingEnabled() {
-        return trackingEnabled;
-    }
-    
-    public boolean hasValidTarget(int limelightIndex) {
-        if (limelightIndex >= 0 && limelightIndex < limelights.length) {
-            return tv_subs.get(limelightIndex).get() == 1;
+    // Retrieves the vertical offset for a specific AprilTag.
+    public double getTargetVerticalOffset(int tagId) {
+        if (tagId >= 0 && tagId < VisionConstants.APRILTAG_OFFSETS.length) {
+            return VisionConstants.APRILTAG_OFFSETS[tagId][1];
         }
-        return false;
-    }
-    
-    public Optional<AprilTagTarget> getBestTarget() {
-        AprilTagTarget bestTarget = null;
-        double bestArea = 0;
-        
-        for (int i = 0; i < limelights.length; i++) {
-            if (hasValidTarget(i)) {
-                double currentArea = ta_subs.get(i).get();
-                if (currentArea > bestArea) {
-                    bestTarget = new AprilTagTarget(
-                        (int)tid_subs.get(i).get(),
-                        tx_subs.get(i).get(),
-                        poseX_subs.get(i).get(),
-                        poseY_subs.get(i).get(),
-                        i
-                    );
-                    bestArea = currentArea;
-                }
-            }
-        }
-        
-        return Optional.ofNullable(bestTarget);
-    }
-    
-    public static class AprilTagTarget {
-        public final int id;
-        public final double tx;
-        public final double poseX;
-        public final double poseY;
-        public final int limelightIndex;
-        
-        public AprilTagTarget(int id, double tx, double poseX, double poseY, int limelightIndex) {
-            this.id = id;
-            this.tx = tx;
-            this.poseX = poseX;
-            this.poseY = poseY;
-            this.limelightIndex = limelightIndex;
-        }
-    }
-    
-    @Override
-    public void periodic() {
-        // Update tracking values in NetworkTables when we have a valid target
-        getBestTarget().ifPresent(target -> {
-            double currentDistance = Math.sqrt(
-                Math.pow(poseX_subs.get(target.limelightIndex).get(), 2) +
-                Math.pow(poseY_subs.get(target.limelightIndex).get(), 2)
-            );
-
-            // Calculate horizontal offset based on pose
-            double currentHorizontalOffset = poseY_subs.get(target.limelightIndex).get();
-            
-            currentDistancePub.set(currentDistance);
-            angleToTargetPub.set(target.tx);
-            targetDistancePub.set(tagDistances.getOrDefault(target.id, 0.0));
-            currentHorizontalOffsetPub.set(currentHorizontalOffset);
-            targetHorizontalOffsetPub.set(tagHorizontalOffsets.getOrDefault(target.id, 0.0));
-        });
-        
-        updateShuffleboard();
+        return 0.0;
     }
 
-	private void updateShuffleboard() {
-        // Update tracking status widgets
-        trackingEnabledWidget.setBoolean(trackingEnabled);
+	// Retrieves the best AprilTag target from all Limelights.
+	public Optional<AprilTagTarget> getBestTarget() {
+		AprilTagTarget bestTarget = null;
+		double bestArea = 0;
 
-        getBestTarget().ifPresent(target -> {
-            currentTagIdWidget.setDouble(target.id);
-            targetDistanceWidget.setDouble(getTargetDistance());
-            currentDistanceWidget.setDouble(getCurrentDistance());
-            angleToTargetWidget.setDouble(getAngleToTarget());
-            targetHorizontalOffsetWidget.setDouble(getTargetHorizontalOffset());
-            currentHorizontalOffsetWidget.setDouble(getCurrentHorizontalOffset());
-        });
-        
-        // Update Limelight widgets
-        for (int i = 0; i < limelights.length; i++) {
-            String name = VisionConstants.LIMELIGHT_NAMES[i];
-            List<GenericEntry> widgets = limelightWidgets.get(name);
-            
-            widgets.get(0).setBoolean(hasValidTarget(i));
-            widgets.get(1).setDouble(tx_subs.get(i).get());
-            widgets.get(2).setDouble(ty_subs.get(i).get());
-            widgets.get(3).setDouble(ta_subs.get(i).get());
-            widgets.get(4).setDouble(tid_subs.get(i).get());
-        }
+		for (String name : VisionConstants.LIMELIGHT_NAMES) {
+			if (LimelightHelpers.getTV("limelight-" + name)) {
+				double currentArea = LimelightHelpers.getTA("limelight-" + name);
+				if (currentArea > bestArea) {
+					bestTarget = new AprilTagTarget(
+						(int) LimelightHelpers.getFiducialID("limelight-" + name),
+						LimelightHelpers.getTX("limelight-" + name),
+						LimelightHelpers.getTargetPose3d_CameraSpace("limelight-" + name).getX(),
+						LimelightHelpers.getTargetPose3d_CameraSpace("limelight-" + name).getY(),
+						name
+					);
+					bestArea = currentArea;
+				}
+			}
+		}
+
+		return Optional.ofNullable(bestTarget);
+	}
+
+	// Retrieves the latest pose estimate for vision-assisted localization.
+	public Pose2d getLatestPoseEstimate() {
+		// Use the best Limelight's pose estimate
+		Optional<AprilTagTarget> target = getBestTarget();
+		if (target.isPresent()) {
+			return LimelightHelpers.getBotPose2d_wpiBlue("limelight-" + target.get().limelightName);
+		}
+		return null;
+	}
+
+	// Stops vision-based movement cleanly.
+	public void stopVisionMovement() {
+		trackingEnabled = false;
+		for (String name : VisionConstants.LIMELIGHT_NAMES) {
+			LimelightHelpers.setLEDMode_ForceOff("limelight-" + name);
+		}
+	}
+
+	// Represents an AprilTag target detected by a Limelight.
+	public static class AprilTagTarget {
+		public final int id;
+		public final double tx;
+		public final double poseX;
+		public final double poseY;
+		public final String limelightName;
+
+		public AprilTagTarget(int id, double tx, double poseX, double poseY, String limelightName) {
+			this.id = id;
+			this.tx = tx;
+			this.poseX = poseX;
+			this.poseY = poseY;
+			this.limelightName = limelightName;
+		}
+	}
+
+	@Override
+	public void periodic() {
+		// Update Shuffleboard
+		Optional<AprilTagTarget> target = getBestTarget();
+		trackingEnabledWidget.setBoolean(trackingEnabled);
+		if (target.isPresent()) {
+			bestTagIdWidget.setDouble(target.get().id);
+			bestTagDistanceWidget.setDouble(Math.hypot(target.get().poseX, target.get().poseY));
+			bestTagHorizontalOffsetWidget.setDouble(target.get().poseY);
+		}
 	}
 }

@@ -1,4 +1,3 @@
-/*
 package frc.robot.subsystems;
 
 import com.ctre.phoenix6.hardware.TalonFX;
@@ -10,6 +9,8 @@ import com.ctre.phoenix6.configs.TalonFXConfiguration;
 import com.ctre.phoenix6.controls.PositionVoltage;
 import com.ctre.phoenix6.controls.DutyCycleOut;
 
+import edu.wpi.first.wpilibj.DigitalInput;
+import edu.wpi.first.wpilibj.DutyCycle;
 import edu.wpi.first.wpilibj.shuffleboard.BuiltInWidgets;
 import edu.wpi.first.wpilibj.shuffleboard.Shuffleboard;
 import edu.wpi.first.wpilibj.shuffleboard.ShuffleboardTab;
@@ -21,6 +22,8 @@ import frc.robot.Constants.CorAlConstants;
 public class CorAl extends SubsystemBase {
 	private final TalonFX pivotMotor;
 	private final TalonFX intakeMotor;
+	private final DigitalInput throughBoreInput;
+	private final DutyCycle throughBore;
 	private final ShuffleboardTab tab;
 	private final SimpleWidget pivotTargetAngleWidget;
 	private final SimpleWidget resetPivotEncoderWidget;
@@ -33,6 +36,10 @@ public class CorAl extends SubsystemBase {
 		// Initialize motors
 		pivotMotor = new TalonFX(CorAlConstants.CORAL_PIVOT_MOTOR_ID);
 		intakeMotor = new TalonFX(CorAlConstants.CORAL_INTAKE_MOTOR_ID);
+
+		// Initialize REV Through Bore Encoder (Absolute Mode)
+		throughBoreInput = new DigitalInput(CorAlConstants.THROUGH_BORE_DIO_PORT);
+        throughBore = new DutyCycle(throughBoreInput);
 
 		// Initialize control requests
 		positionRequest = new PositionVoltage(0).withSlot(0);
@@ -149,25 +156,17 @@ public class CorAl extends SubsystemBase {
 			.withSize(1, 1);
 	}
 
-	@Override
-	public void periodic() {
-		// Check for encoder reset
-		if (resetPivotEncoderWidget.getEntry().getBoolean(false)) {
-			resetPivotEncoder();
-			resetPivotEncoderWidget.getEntry().setBoolean(false);
-		}
-
-		// Safety check
-		if (isPivotOutOfBounds()) {
-			stopPivot();
-		}
-	}
-
 	public void setPivotAngle(double targetAngle) {
 		// Clamp target angle
 		targetAngle = Math.min(Math.max(targetAngle, 
 			CorAlConstants.CORAL_PIVOT_MIN_ANGLE),
 			CorAlConstants.CORAL_PIVOT_MAX_ANGLE);
+
+			// Use Through Bore Encoder as backup if motor feedback is invalid
+			if (!isMotorFeedbackValid()) {
+				targetAngle = getThroughBoreAngle();
+				System.err.println("Using Through Bore Encoder as backup");
+			}
 
 		double gravityFF = CorAlConstants.CORAL_PIVOT_kG * Math.cos(Math.toRadians(targetAngle));
 		
@@ -226,5 +225,52 @@ public class CorAl extends SubsystemBase {
 		return Math.abs(pivotTargetAngleWidget.getEntry().getDouble(0) - getPivotAngle()) <= 
 			CorAlConstants.CORAL_PIVOT_ALLOWED_ERROR;
 	}
+
+	public double getThroughBoreAngle() {
+        // Measure the duty cycle (ratio of high time to total period)
+        double dutyCycle = throughBore.getOutput();
+
+        // Convert the duty cycle to an angle (example conversion formula)
+        double angle = dutyCycle * CorAlConstants.THROUGH_BORE_MAX_ANGLE;
+
+        return angle;
+    }
+
+	public boolean isMotorFeedbackValid() {
+        double krakenAngle = getPivotAngle();
+        double throughBoreAngle = getThroughBoreAngle();
+        double discrepancy = Math.abs(krakenAngle - throughBoreAngle);
+
+        return discrepancy <= CorAlConstants.THROUGH_BORE_ALLOWED_DISCREPANCY;
+    }
+
+	private void validateMotorFeedback() {
+        if (!isMotorFeedbackValid()) {
+            System.err.println("WARNING: Motor feedback discrepancy detected!");
+            System.err.println("Kraken X60 Angle: " + getPivotAngle());
+            System.err.println("Through Bore Encoder Angle: " + getThroughBoreAngle());
+        }
+    }
+
+	@Override
+	public void periodic() {
+		// Log Kraken X60 and Through Bore Encoder angles for testing
+		double krakenAngle = getPivotAngle();
+		double throughBoreAngle = getThroughBoreAngle();
+		System.out.println("Kraken X60 Angle: " + krakenAngle + " | Through Bore Encoder Angle: " + throughBoreAngle);
+		
+		// Check for encoder reset
+		if (resetPivotEncoderWidget.getEntry().getBoolean(false)) {
+			resetPivotEncoder();
+			resetPivotEncoderWidget.getEntry().setBoolean(false);
+		}
+
+		// Validate motor feedback
+        validateMotorFeedback();
+
+		// Safety check
+		if (isPivotOutOfBounds()) {
+			stopPivot();
+		}
+	}
 }
-*/

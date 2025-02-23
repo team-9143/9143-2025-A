@@ -74,11 +74,11 @@ public final class Constants {
 		public static final double CORAL_PIVOT_kP = 12.0; // Proportional gain for the pivot motor's PID controller
 		public static final double CORAL_PIVOT_kI = 0.0; // Integral gain for the pivot motor's PID controller
 		public static final double CORAL_PIVOT_kD = 0.5; // Derivative gain for the pivot motor's PID controller
-		public static final double CORAL_PIVOT_kG = 0.2; // Gravity compensation feed forward
+		public static final double CORAL_PIVOT_kG = 0.15; // Gravity compensation feed forward
 
 		// Pivot Angle Limits
 		public static final double CORAL_PIVOT_MIN_ANGLE = 0.0; // Minimum allowed angle for the pivot (in degrees)
-		public static final double CORAL_PIVOT_MAX_ANGLE = 180.0; // Maximum allowed angle for the pivot (in degrees)
+		public static final double CORAL_PIVOT_MAX_ANGLE = 160.0; // Maximum allowed angle for the pivot (in degrees)
 
 		// Allowed Error
 		public static final double CORAL_PIVOT_ALLOWED_ERROR = 0.5; // Allowed error threshold for the pivot to be "at target"
@@ -89,15 +89,21 @@ public final class Constants {
 
 		// Pivot Preset Angles
 		public static final double CORAL_BASE_ANGLE = 0.0;
-		public static final double CORAL_LOW_ANGLE = 30.0;
-		public static final double CORAL_MID_ANGLE = 17.4;
-		public static final double CORAL_HIGH_ANGLE = 0.0;
-		public static final double ALGAE_INTAKE_ANGLE = 180.0;
+		public static final double CORAL_RAISE_ANGLE = 90.0;
+		public static final double ALGAE_INTAKE_ANGLE = 156.0;
 		public static final double ALGAE_SCORE_ANGLE = 135.0;
 
 		// Roller Speeds
-		public static final double CORAL_INTAKE_SPEED = 0.5;
-		public static final double ALGAE_INTAKE_SPEED = -0.5;
+		public static final double CORAL_INTAKE_SPEED = 0.2;
+		public static final double ALGAE_INTAKE_SPEED = -0.2;
+
+		// Through Bore ID
+		public static final int THROUGH_BORE_DIO_PORT = 0;
+
+		// Through Bore Angles
+		public static final double THROUGH_BORE_MIN_ANGLE = 0.0;
+        public static final double THROUGH_BORE_MAX_ANGLE = 160.0;
+        public static final double THROUGH_BORE_ALLOWED_DISCREPANCY = 2.0; 
 	}
 		
 	public final class AlLowConstants {
@@ -139,53 +145,48 @@ public final class Constants {
 	}
 
 	public static final class VisionConstants {
-        // Limelight Configuration
-        public static final String[] LIMELIGHT_NAMES = {"limelight-front", "limelight-2", "limelight-3"};
-        
-        // Network Tables
-        public static final String NT_APRILTAG_TABLE = "AprilTagTracking";
-        public static final String NT_TARGET_DISTANCE = "targetDistance";
-        public static final String NT_CURRENT_DISTANCE = "currentDistance";
-		public static final String NT_TARGET_HORIZONTAL_OFFSET = "targetHorizontalOffset";
-		public static final String NT_CURRENT_HORIZONTAL_OFFSET = "currentHorizontalOffset";
-        public static final String NT_ANGLE_TO_TARGET = "angleToTarget";
-        
-        // Default AprilTag Distances (meters)
-        public static final class TagDistances {
-            public static final double TAG_1_DISTANCE = 1.0;
-            public static final double TAG_2_DISTANCE = 1.0;
-            public static final double TAG_3_DISTANCE = 1.0;
-            public static final double TAG_4_DISTANCE = 1.0;
+        // Limelight names
+        public static final String[] LIMELIGHT_NAMES = {"funnel", "barge", "reef"};
 
-			public static final double TAG_1_HORIZONTAL = 0.0;
-			public static final double TAG_2_HORIZONTAL = 0.0;
-			public static final double TAG_3_HORIZONTAL = 0.0;
-			public static final double TAG_4_HORIZONTAL = 0.0;
-        }
-        
-        // Tracking PID Values
+        // AprilTag pipeline index
+        public static final int APRILTAG_PIPELINE = 0;
+
+        // Distance offsets for AprilTags (in meters)
+        public static final double[][] APRILTAG_OFFSETS = {
+            // Format: {horizontalOffset, verticalOffset}
+            {0.0, 0.0}, // Tag 1
+            {0.0, 0.0}, // Tag 2
+			{0.0, 0.0}, // Tag 3
+			{0.0, 0.0}, // Tag 4
+			{0.0, 0.0}, // Tag 5
+			{0.0, 0.0}, // Tag 6
+			{0.0, 0.0}, // Tag 7
+			{0.0, 0.0}, // Tag 8
+			{0.0, 0.0}, // Tag 9
+			{0.0, 0.0}, // Tag 10
+			{0.0, 0.0}, // Tag 11
+			{0.0, 0.0}, // Tag 12
+			{0.0, 0.0}, // Tag 13
+			{0.0, 0.0}, // Tag 14
+			{0.0, 0.0}, // Tag 15
+			{0.0, 0.0}, // Tag 16
+			{0.0, 0.0}, // Tag 17
+			{0.0, 0.0}, // Tag 18
+			{0.0, 0.0}, // Tag 19
+			{0.0, 0.0}, // Tag 20
+			{0.0, 0.0}, // Tag 21
+			{0.0, 0.0}, // Tag 22
+        };
+
+        // Tracking gains
         public static final class TrackingGains {
-            public static final double DISTANCE_kP = 0.5;
-            public static final double ANGLE_kP = 0.02;
-            public static final double ROTATION_kP = 0.02;
-            
-            // Velocity limits
-            public static final double MAX_LINEAR_VELOCITY = 2.0; // meters per second
-            public static final double MAX_ANGULAR_VELOCITY = Math.PI; // radians per second
-            
-            // Deadband values
+            public static final double DISTANCE_kP = 0.1;
+            public static final double ANGLE_kP = 0.05;
+            public static final double ROTATION_kP = 0.03;
             public static final double VELOCITY_DEADBAND = 0.05;
-            public static final double ROTATION_DEADBAND = 0.05;
+            public static final double ROTATION_DEADBAND = 0.02;
+            public static final double MAX_LINEAR_VELOCITY = 2.0; // m/s
+            public static final double MAX_ANGULAR_VELOCITY = 1.0; // rad/s
         }
-        
-        // Shuffleboard Layout
-        public static final class ShuffleboardLayout {
-            public static final int VISION_TAB_WIDTH = 2;
-            public static final int VISION_TAB_HEIGHT = 2;
-            public static final int TRACKING_WIDTH = 2;
-            public static final int TRACKING_HEIGHT = 3;
-            public static final int DEBUG_WIDTH = 2;
-            public static final int DEBUG_HEIGHT = 4;
-		}
     }
 }
