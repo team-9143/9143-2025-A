@@ -23,8 +23,8 @@ public final class Constants {
 		public static final int ELEVATOR_CURRENT_LIMIT = 60; // Current limit for the elevator motors (in amps)
 
 		// Encoder Conversion Factors
-		public static final double ELEVATOR_POSITION_CONVERSION = 0.0146; // Convert encoder ticks to position units
-		public static final double ELEVATOR_VELOCITY_CONVERSION = 0.0146 / 60.0; // Convert RPM to inches per second
+		public static final double ELEVATOR_POSITION_CONVERSION = 0.0291; // Inches per count
+		public static final double ELEVATOR_VELOCITY_CONVERSION = 0.000485; // Inches per second per count
 
 		// PID Constants
 		public static final double ELEVATOR_kP = 1.0; // Proportional gain for the elevator's PID controller
@@ -43,11 +43,15 @@ public final class Constants {
 		public static final double ELEVATOR_MANUAL_CONTROL_DEADBAND = 0.2; // Deadband for manual elevator control
 		public static final double ELEVATOR_MANUAL_SPEED_LIMIT = 0.5; // Speed limit for manual elevator control
 
-		// Preset Heights
-		public static final double ELEVATOR_BASE_HEIGHT = 0.0;
-		public static final double ELEVATOR_CORAL_L2_HEIGHT = 2.0;
-		public static final double ELEVATOR_CORAL_L3_HEIGHT = 8.0;
-		public static final double ELEVATOR_CORAL_L4_HEIGHT = 20.5;
+		public static final class PresetHeights {
+			public static final double BASE = 0.0;
+			public static final double CORAL_L2 = 10.0;
+			public static final double CORAL_L3 = 20.0;
+			public static final double CORAL_L4 = 30.0;
+			public static final double ALGAE_L2 = 10.0;
+			public static final double ALGAE_L3 = 20.0;
+			public static final double ALGAE_NET = 30.0;
+		}
 	}
 	
 	public final class CorAlConstants {

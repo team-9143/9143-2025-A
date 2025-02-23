@@ -110,17 +110,17 @@ public class RobotContainer {
 		drivetrain.registerTelemetry(logger::telemeterize);
 		
 		// Elevator preset heights
-		operator_controller.povDown().onTrue(Commands.runOnce(() -> elevator.setPosition(ElevatorConstants.ELEVATOR_BASE_HEIGHT), elevator));
-		operator_controller.povLeft().onTrue(Commands.runOnce(() -> elevator.setPosition(ElevatorConstants.ELEVATOR_CORAL_L2_HEIGHT), elevator));
-		operator_controller.povRight().onTrue(Commands.runOnce(() -> elevator.setPosition(ElevatorConstants.ELEVATOR_CORAL_L3_HEIGHT), elevator));
-		operator_controller.povUp().onTrue(Commands.runOnce(() -> elevator.setPosition(ElevatorConstants.ELEVATOR_CORAL_L4_HEIGHT), elevator));
+		operator_controller.povDown().onTrue(Commands.runOnce(() -> elevator.setPosition(ElevatorConstants.PresetHeights.BASE), elevator));
+		operator_controller.povLeft().onTrue(Commands.runOnce(() -> elevator.setPosition(ElevatorConstants.PresetHeights.CORAL_L2), elevator));
+		operator_controller.povRight().onTrue(Commands.runOnce(() -> elevator.setPosition(ElevatorConstants.PresetHeights.CORAL_L3), elevator));
+		operator_controller.povUp().onTrue(Commands.runOnce(() -> elevator.setPosition(ElevatorConstants.PresetHeights.CORAL_L4), elevator));
 
 		// Elevator encoder reset
 		operator_controller.leftBumper().onTrue(Commands.runOnce(() -> elevator.resetEncoders(), elevator).ignoringDisable(true));
 
 		// Elevator manual control
 		elevator.setDefaultCommand(Commands.run(() -> {
-			double speed = -operator_controller.getLeftY(); // Use left stick Y for manual control
+			double speed = operator_controller.getLeftX(); // Use left stick Y for manual control
 			elevator.manualControl(speed);
 		}, elevator));
 	  
@@ -154,7 +154,7 @@ public class RobotContainer {
 
 		// Pivot manual control
 		coral.setDefaultCommand(Commands.run(() -> {
-			double speed = -operator_controller.getRightX(); // Use right stick X for manual control
+			double speed = operator_controller.getRightY(); // Use right stick X for manual control
 			coral.manualPivotControl(speed);
 		}, coral));
 

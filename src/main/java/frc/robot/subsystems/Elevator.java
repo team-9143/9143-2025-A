@@ -2,6 +2,7 @@ package frc.robot.subsystems;
 
 import com.revrobotics.RelativeEncoder;
 import com.revrobotics.spark.ClosedLoopSlot;
+import com.revrobotics.spark.SparkBase;
 import com.revrobotics.spark.SparkBase.ControlType;
 import com.revrobotics.spark.SparkBase.PersistMode;
 import com.revrobotics.spark.SparkBase.ResetMode;
@@ -58,20 +59,6 @@ public class Elevator extends SubsystemBase {
 
 		// Initialize Shuffleboard tab and widgets
 		tab = Shuffleboard.getTab("Elevator");
-		targetPositionWidget = tab.add("Target Position", 0)
-			.withPosition(0, 0)
-			.withSize(2, 1);
-		manualControlWidget = tab.add("Manual Control", false)
-			.withPosition(2, 0)
-			.withSize(2, 1);
-		manualSpeedWidget = tab.add("Manual Speed", 0)
-			.withPosition(4, 0)
-			.withSize(2, 1);
-		resetEncoderWidget = tab.add("Reset Encoder", false)
-			.withPosition(6, 0)
-			.withSize(2, 1);
-
-		// Configure Shuffleboard
 		configureShuffleboard();
 	}
 
@@ -97,7 +84,6 @@ public class Elevator extends SubsystemBase {
 	}
 
 	private void configureShuffleboard() {
-		/*
 		// Control widgets
 		targetPositionWidget = tab.add("Target Position", 0.0)
 			.withWidget(BuiltInWidgets.kNumberSlider)
@@ -158,27 +144,6 @@ public class Elevator extends SubsystemBase {
 		tab.addNumber("F Gain", () -> ElevatorConstants.ELEVATOR_kF)
 			.withPosition(7, 1)
 			.withSize(1, 1);
-			*/
-	}
-
-	@Override
-	public void periodic() {
-		// Check for encoder reset
-		if (resetEncoderWidget.getEntry().getBoolean(false)) {
-			resetEncoders();
-			resetEncoderWidget.getEntry().setBoolean(false);
-		}
-
-		// Control logic
-		if (manualControlWidget.getEntry().getBoolean(false)) {
-			// Manual control
-			double manualSpeed = manualSpeedWidget.getEntry().getDouble(0);
-			manualControl(manualSpeed);
-		} else {
-			// Position control
-			double targetPosition = targetPositionWidget.getEntry().getDouble(0);
-			setPosition(targetPosition);
-		}
 	}
 
 	public void setPosition(double targetPosition) {
@@ -186,8 +151,8 @@ public class Elevator extends SubsystemBase {
 		targetPosition = Math.min(Math.max(targetPosition, ElevatorConstants.ELEVATOR_MIN_POSITION),
 			ElevatorConstants.ELEVATOR_MAX_POSITION);
 
-		// Calculate feed forward based on gravity compensation
-		double ff = ElevatorConstants.ELEVATOR_kF;  // Static feed forward for gravity
+		// Calculate dynamic feed forward based on gravity compensation
+		double ff = calculateFeedForward(targetPosition);
 
 		// Create a ClosedLoopSlot object for slot 0
     	ClosedLoopSlot slot = ClosedLoopSlot.kSlot0;
@@ -232,12 +197,38 @@ public class Elevator extends SubsystemBase {
 	}
 
 	public double getCurrentPosition() {
-		return leftEncoder.getPosition(); // Assuming both encoders are synchronized
+		// Average both encoders to ensure synchronization
+		return (leftEncoder.getPosition() + rightEncoder.getPosition()) / 2.0;
 	}
 
 	public boolean isAtTargetPosition() {
 		double targetPosition = targetPositionWidget.getEntry().getDouble(0);
 		double currentPosition = getCurrentPosition();
 		return Math.abs(targetPosition - currentPosition) <= ElevatorConstants.ELEVATOR_ALLOWED_ERROR;
+	}
+
+	private double calculateFeedForward(double targetPosition) {
+		// Calculate feedforward based on the target position (e.g., gravity compensation)
+		return ElevatorConstants.ELEVATOR_kF * Math.sin(Math.toRadians(targetPosition));
+	}
+
+	@Override
+	public void periodic() {
+		// Check for encoder reset
+		if (resetEncoderWidget.getEntry().getBoolean(false)) {
+			resetEncoders();
+			resetEncoderWidget.getEntry().setBoolean(false);
+		}
+
+		// Control logic
+		if (manualControlWidget.getEntry().getBoolean(false)) {
+			// Manual control
+			double manualSpeed = manualSpeedWidget.getEntry().getDouble(0);
+			manualControl(manualSpeed);
+		} else {
+			// Position control
+			double targetPosition = targetPositionWidget.getEntry().getDouble(0);
+			setPosition(targetPosition);
+		}
 	}
 }
