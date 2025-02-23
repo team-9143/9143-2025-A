@@ -116,7 +116,7 @@ public class RobotContainer {
 		operator_controller.povUp().onTrue(Commands.runOnce(() -> elevator.setPosition(ElevatorConstants.ELEVATOR_CORAL_L4_HEIGHT), elevator));
 
 		// Elevator encoder reset
-		operator_controller.a().onTrue(Commands.runOnce(() -> elevator.resetEncoders(), elevator).ignoringDisable(true));
+		operator_controller.leftBumper().onTrue(Commands.runOnce(() -> elevator.resetEncoders(), elevator).ignoringDisable(true));
 
 		// Elevator manual control
 		elevator.setDefaultCommand(Commands.run(() -> {
@@ -127,48 +127,30 @@ public class RobotContainer {
 	  /*
 		// CorAl retraction
 		operator_controller.a().onTrue(Commands.runOnce(() -> {
-			coral.setPivotAngle(CorAlConstants.BASE_ANGLE);
-			coral.setIntakeSpeed(0);
+			coral.setPivotAngle(CorAlConstants.CORAL_BASE_ANGLE);
+			coral.stopIntake();
 		}, coral));
 
-		// Coral intaking
-		operator_controller.b().onTrue(Commands.runOnce(() -> {
-			coral.setPivotAngle(CorAlConstants.BASE_ANGLE);
-			coral.setIntakeSpeed(CorAlConstants.CORAL_INTAKE_SPEED);
-		}, coral));
-
-		// Coral low scoring
+		// Coral scoring
 		operator_controller.x().onTrue(Commands.runOnce(() -> {
-			coral.setPivotAngle(CorAlConstants.CORAL_LOW_ANGLE);
-			coral.setIntakeSpeed(CorAlConstants.CORAL_INTAKE_SPEED);
-		}, coral));
-
-		// Coral mid scoring
-		operator_controller.y().onTrue(Commands.runOnce(() -> {
-			coral.setPivotAngle(CorAlConstants.CORAL_MID_ANGLE);
-			coral.setIntakeSpeed(CorAlConstants.CORAL_INTAKE_SPEED);
-		}, coral));
-
-		// Coral high scoring
-		operator_controller.start().onTrue(Commands.runOnce(() -> {
-			coral.setPivotAngle(CorAlConstants.CORAL_HIGH_ANGLE);
+			coral.setPivotAngle(CorAlConstants.CORAL_BASE_ANGLE);
 			coral.setIntakeSpeed(CorAlConstants.CORAL_INTAKE_SPEED);
 		}, coral));
 
 		// Algae intaking
-		operator_controller.leftBumper().onTrue(Commands.runOnce(() -> {
+		operator_controller.b().onTrue(Commands.runOnce(() -> {
 			coral.setPivotAngle(CorAlConstants.ALGAE_INTAKE_ANGLE);
 			coral.setIntakeSpeed(CorAlConstants.ALGAE_INTAKE_SPEED);
 		}, coral));
 
 		// Algae scoring
-		operator_controller.rightBumper().onTrue(Commands.runOnce(() -> {
+		operator_controller.y().onTrue(Commands.runOnce(() -> {
 			coral.setPivotAngle(CorAlConstants.ALGAE_SCORE_ANGLE);
 			coral.setIntakeSpeed(CorAlConstants.CORAL_INTAKE_SPEED);
 		}, coral));
 
 		// Pivot encoder reset
-		operator_controller.back().onTrue(Commands.runOnce(() -> coral.resetPivotEncoder(), coral).ignoringDisable(true));
+		operator_controller.rightBumper().onTrue(Commands.runOnce(() -> coral.resetPivotEncoder(), coral).ignoringDisable(true));
 
 		// Pivot manual control
 		coral.setDefaultCommand(Commands.run(() -> {

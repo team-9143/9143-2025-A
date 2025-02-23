@@ -9,9 +9,6 @@ package frc.robot;
  * constants are needed, to reduce verbosity.
  */
 public final class Constants {
-	
-	// Constants defining IDs and ports for motors, sensors, and other devices.
-	public static class DeviceConstants {}
 
 	public final class ElevatorConstants {
 		// Motor IDs
@@ -57,53 +54,55 @@ public final class Constants {
 		// Motor IDs
 		public static final int CORAL_PIVOT_MOTOR_ID = 60; // CAN ID for the pivot motor
 		public static final int CORAL_INTAKE_MOTOR_ID = 61; // CAN ID for the intake motor
-
+	
 		// Motor Inversion
 		public static final boolean CORAL_PIVOT_MOTOR_INVERTED = false; // Set to true if the pivot motor is inverted
 		public static final boolean CORAL_INTAKE_MOTOR_INVERTED = false; // Set to true if the intake motor is inverted
-
+	
 		// Current Limits
 		public static final int CORAL_PIVOT_CURRENT_LIMIT = 30; // Current limit for the pivot motor (in amps)
 		public static final int CORAL_INTAKE_CURRENT_LIMIT = 20; // Current limit for the intake motor (in amps)
-
+	
 		// Encoder Conversion Factors
 		public static final double CORAL_PIVOT_POSITION_CONVERSION = 360.0 / 2241.6; // Convert encoder ticks to degrees
 		public static final double CORAL_PIVOT_VELOCITY_CONVERSION = 360.0 / 2241.6; // Convert encoder RPS to degrees per second
-
+	
 		// PID Constants
 		public static final double CORAL_PIVOT_kP = 12.0; // Proportional gain for the pivot motor's PID controller
 		public static final double CORAL_PIVOT_kI = 0.0; // Integral gain for the pivot motor's PID controller
 		public static final double CORAL_PIVOT_kD = 0.5; // Derivative gain for the pivot motor's PID controller
 		public static final double CORAL_PIVOT_kG = 0.15; // Gravity compensation feed forward
-
+	
 		// Pivot Angle Limits
 		public static final double CORAL_PIVOT_MIN_ANGLE = 0.0; // Minimum allowed angle for the pivot (in degrees)
 		public static final double CORAL_PIVOT_MAX_ANGLE = 160.0; // Maximum allowed angle for the pivot (in degrees)
-
+	
 		// Allowed Error
 		public static final double CORAL_PIVOT_ALLOWED_ERROR = 0.5; // Allowed error threshold for the pivot to be "at target"
-
+	
 		// Manual Control Parameters
 		public static final double CORAL_MANUAL_CONTROL_DEADBAND = 0.2; // Deadband for manual pivot control
 		public static final double CORAL_MANUAL_SPEED_LIMIT = 0.5; // Speed limit for manual pivot control
-
+	
 		// Pivot Preset Angles
 		public static final double CORAL_BASE_ANGLE = 0.0;
 		public static final double CORAL_RAISE_ANGLE = 90.0;
 		public static final double ALGAE_INTAKE_ANGLE = 156.0;
 		public static final double ALGAE_SCORE_ANGLE = 135.0;
-
+	
 		// Roller Speeds
 		public static final double CORAL_INTAKE_SPEED = 0.2;
 		public static final double ALGAE_INTAKE_SPEED = -0.2;
+	
+		// Through Bore Encoder
+		public static final int THROUGH_BORE_DIO_PORT = 0; // DIO port for the Through Bore Encoder
+		public static final double THROUGH_BORE_MIN_ANGLE = 0.0; // Minimum angle for the Through Bore Encoder
+		public static final double THROUGH_BORE_MAX_ANGLE = 160.0; // Maximum angle for the Through Bore Encoder
+		public static final double THROUGH_BORE_ALLOWED_DISCREPANCY = 2.0; // Allowed discrepancy between encoders (in degrees)
 
-		// Through Bore ID
-		public static final int THROUGH_BORE_DIO_PORT = 0;
-
-		// Through Bore Angles
-		public static final double THROUGH_BORE_MIN_ANGLE = 0.0;
-        public static final double THROUGH_BORE_MAX_ANGLE = 160.0;
-        public static final double THROUGH_BORE_ALLOWED_DISCREPANCY = 2.0; 
+		// CANRange Sensor
+		public static final int CANRANGE_SENSOR_ID = 64; // CAN ID for the CANRange sensor
+		public static final double CANRANGE_DETECTION_THRESHOLD = 10.0; // Distance threshold for detecting a game piece (in mm)
 	}
 		
 	public final class AlLowConstants {
