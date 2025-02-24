@@ -24,7 +24,7 @@ import frc.robot.subsystems.Swerve;
 import frc.robot.subsystems.Elevator;
 //import frc.robot.subsystems.CorAl;
 //import frc.robot.subsystems.AlLow;
-import frc.robot.subsystems.Vision;
+// import frc.robot.subsystems.Vision;
 
 public class RobotContainer {
 	private double MaxSpeed = TunerConstants.kSpeedAt12Volts.in(MetersPerSecond); // kSpeedAt12Volts desired top speed
@@ -49,7 +49,7 @@ public class RobotContainer {
 	private final Elevator elevator = new Elevator();
 	//private final CorAl coral = new CorAl();
 	//private final AlLow allow = new AlLow();
-	private final Vision vision = new Vision();
+	// private final Vision vision = new Vision();
 
 	private final SendableChooser<Command> autoChooser;
 	private final ShuffleboardTab autoTab = Shuffleboard.getTab("Auto");
@@ -98,6 +98,7 @@ public class RobotContainer {
 		// Reset the field-centric heading on left bumper press
 		driver_controller.leftBumper().onTrue(drivetrain.runOnce(() -> drivetrain.seedFieldCentric()));
 
+		/*
 		driver_controller.y().onTrue(Commands.runOnce(() -> {
 			vision.toggleTracking();
 			if (vision.isTrackingEnabled()) {
@@ -106,6 +107,7 @@ public class RobotContainer {
 				drivetrain.getCurrentCommand().cancel();
 			}
 		}));
+		*/
 
 		drivetrain.registerTelemetry(logger::telemeterize);
 		
@@ -120,11 +122,11 @@ public class RobotContainer {
 
 		// Elevator manual control
 		elevator.setDefaultCommand(Commands.run(() -> {
-			double speed = operator_controller.getLeftX(); // Use left stick Y for manual control
+			double speed = -operator_controller.getLeftY(); // Use left stick Y for manual control
 			elevator.manualControl(speed);
 		}, elevator));
-	  
-	  /*
+
+		/*
 		// CorAl retraction
 		operator_controller.a().onTrue(Commands.runOnce(() -> {
 			coral.setPivotAngle(CorAlConstants.CORAL_BASE_ANGLE);
@@ -154,7 +156,7 @@ public class RobotContainer {
 
 		// Pivot manual control
 		coral.setDefaultCommand(Commands.run(() -> {
-			double speed = operator_controller.getRightY(); // Use right stick X for manual control
+			double speed = operator_controller.getRightX(); // Use right stick X for manual control
 			coral.manualPivotControl(speed);
 		}, coral));
 

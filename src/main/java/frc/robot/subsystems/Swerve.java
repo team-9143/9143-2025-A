@@ -50,7 +50,7 @@ public class Swerve extends TunerSwerveDrivetrain implements Subsystem {
 	private boolean m_hasAppliedOperatorPerspective = false;
 
 	// Vision subsystem for AprilTag tracking
-	private final Vision vision;
+	// private final Vision vision;
 
 	// Shuffleboard tab
 	private final ShuffleboardTab swerveTab = Shuffleboard.getTab("Swerve");
@@ -138,7 +138,7 @@ public class Swerve extends TunerSwerveDrivetrain implements Subsystem {
 		SwerveModuleConstants<?, ?, ?>... modules
 	) {
 		super(drivetrainConstants, modules);
-		this.vision = new Vision();
+		// this.vision = new Vision();
 
         // Initialize Shuffleboard layouts
         drivetrainLayout = swerveTab.getLayout("Drivetrain Status", BuiltInLayouts.kList)
@@ -176,7 +176,7 @@ public class Swerve extends TunerSwerveDrivetrain implements Subsystem {
 		SwerveModuleConstants<?, ?, ?>... modules
 	) {
 		super(drivetrainConstants, odometryUpdateFrequency, modules);
-		this.vision = new Vision();
+		// this.vision = new Vision();
 
         // Initialize Shuffleboard layouts
         drivetrainLayout = swerveTab.getLayout("Drivetrain Status", BuiltInLayouts.kList)
@@ -222,7 +222,7 @@ public class Swerve extends TunerSwerveDrivetrain implements Subsystem {
 		SwerveModuleConstants<?, ?, ?>... modules
 	) {
 		super(drivetrainConstants, odometryUpdateFrequency, odometryStandardDeviation, visionStandardDeviation, modules);
-		this.vision = new Vision();
+		// this.vision = new Vision();
 
         // Initialize Shuffleboard layouts
         drivetrainLayout = swerveTab.getLayout("Drivetrain Status", BuiltInLayouts.kList)
@@ -315,6 +315,7 @@ public class Swerve extends TunerSwerveDrivetrain implements Subsystem {
 		return m_sysIdRoutineToApply.dynamic(direction);
 	}
 
+	/*
 	// Creates a command to track the best AprilTag using vision.
 	public Command createAprilTagTrackingCommand() {
         return run(() -> {
@@ -354,6 +355,7 @@ public class Swerve extends TunerSwerveDrivetrain implements Subsystem {
             }
         });
     }
+		*/
 
 	@Override
 	public void periodic() {
