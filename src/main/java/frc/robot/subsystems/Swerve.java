@@ -17,6 +17,7 @@ import com.pathplanner.lib.config.RobotConfig;
 import com.pathplanner.lib.controllers.PPHolonomicDriveController;
 
 import edu.wpi.first.math.Matrix;
+import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.numbers.N1;
 import edu.wpi.first.math.numbers.N3;
@@ -57,8 +58,8 @@ public class Swerve extends TunerSwerveDrivetrain implements Subsystem {
 	private final SwerveRequest.SysIdSwerveRotation m_rotationCharacterization = new SwerveRequest.SysIdSwerveRotation();
 
 	// Vision subsystem for AprilTag tracking
-	private final Vision vision;
-
+	private Vision vision;
+	
 	// Track vision tracking state internally
 	private boolean isVisionTrackingEnabled = false;
 	
@@ -100,10 +101,10 @@ public class Swerve extends TunerSwerveDrivetrain implements Subsystem {
 	);
 
 	/*
-     * SysId routine for characterizing rotation.
-     * This is used to find PID gains for the FieldCentricFacingAngle HeadingController.
-     * See the documentation of SwerveRequest.SysIdSwerveRotation for info on importing the log to SysId.
-     */
+		* SysId routine for characterizing rotation.
+		* This is used to find PID gains for the FieldCentricFacingAngle HeadingController.
+		* See the documentation of SwerveRequest.SysIdSwerveRotation for info on importing the log to SysId.
+		*/
 	private final SysIdRoutine m_sysIdRoutineRotation = new SysIdRoutine(
 		new SysIdRoutine.Config(
 			// This is in radians per secondÂ², but SysId only supports "volts per second"
@@ -141,9 +142,9 @@ public class Swerve extends TunerSwerveDrivetrain implements Subsystem {
 	) {
 		super(drivetrainConstants, modules);
 
-		this.vision = new Vision();
+		this.vision = new Vision(this);
 
-        configureShuffleboardData();
+		configureShuffleboardData();
 		
 		if (Utils.isSimulation()) {
 			startSimThread();
@@ -168,9 +169,9 @@ public class Swerve extends TunerSwerveDrivetrain implements Subsystem {
 	) {
 		super(drivetrainConstants, odometryUpdateFrequency, modules);
 
-		this.vision = new Vision();
-            
-        configureShuffleboardData();
+		this.vision = new Vision(this);
+			
+		configureShuffleboardData();
 
 		if (Utils.isSimulation()) {
 			startSimThread();
@@ -199,9 +200,9 @@ public class Swerve extends TunerSwerveDrivetrain implements Subsystem {
 	) {
 		super(drivetrainConstants, odometryUpdateFrequency, odometryStandardDeviation, visionStandardDeviation, modules);
 
-		this.vision = new Vision();
-            
-        configureShuffleboardData();
+		this.vision = new Vision(this);
+			
+		configureShuffleboardData();
 
 		if (Utils.isSimulation()) {
 			startSimThread();
@@ -247,7 +248,7 @@ public class Swerve extends TunerSwerveDrivetrain implements Subsystem {
 			.withWidget(BuiltInWidgets.kTextView)
 			.withSize(3, 2)
 			.withPosition(0, 0);
-			
+		
 		swerveTab.addNumber("Y Position", () -> getState().Pose.getY())
 			.withWidget(BuiltInWidgets.kTextView)
 			.withSize(3, 2)
@@ -280,56 +281,19 @@ public class Swerve extends TunerSwerveDrivetrain implements Subsystem {
 			.withSize(2, 2)
 			.withPosition(3, 6);
 		
-		/*
 		// Module States Layout - Add entries for each module
-		for (int i = 1; i < 5; i++) {
+		for (int i = 0; i < 4; i++) {
 			final int moduleIndex = i;
-			String moduleName = "Module " + i;
+			String moduleName = "Module " + (i + 1);
 			
 			swerveTab.addNumber(moduleName + " Angle", () -> getState().ModuleStates[moduleIndex].angle.getDegrees())
 				.withSize(2, 2)
-				.withPosition(5, i * 2 - 2);
+				.withPosition(5, i * 2);
 				
 			swerveTab.addNumber(moduleName + " Speed", () -> getState().ModuleStates[moduleIndex].speedMetersPerSecond)
 				.withSize(2, 2)
-				.withPosition(7, i * 2 - 2);
-		
+				.withPosition(7, i * 2);
 		}
-		*/
-		
-		// Vision Status Layout
-		swerveTab.addBoolean("Vision Tracking Enabled", () -> isVisionTrackingEnabled)
-			.withWidget(BuiltInWidgets.kBooleanBox)
-			.withSize(3, 2)
-			.withPosition(9, 0);
-			
-		swerveTab.addBoolean("Target Detected", () -> vision.getBestTarget().isPresent())
-			.withWidget(BuiltInWidgets.kBooleanBox)
-			.withSize(3, 2)
-			.withPosition(9, 2);
-			
-		swerveTab.addNumber("Target ID", () -> 
-			vision.getBestTarget().isPresent() ? vision.getBestTarget().get().id : -1)
-			.withSize(3, 1)
-			.withPosition(9, 4);
-		
-		swerveTab.addNumber("Target Distance", () -> {
-			if (vision.getBestTarget().isPresent()) {
-				Vision.AprilTagTarget target = vision.getBestTarget().get();
-				return Math.hypot(target.poseX, target.poseY);
-			}
-			return 0.0;
-		}).withSize(3, 1).withPosition(9, 5);
-		
-		swerveTab.addNumber("Target Yaw", () -> 
-			vision.getBestTarget().isPresent() ? vision.getBestTarget().get().tx : 0.0)
-			.withSize(3, 1)
-			.withPosition(9, 6);
-			
-		swerveTab.addNumber("Target Pitch", () ->
-			vision.getBestTarget().isPresent() ? vision.getBestTarget().get().ty : 0.0)
-			.withSize(3, 1)
-			.withPosition(9, 7);
 	}
 
 	/**
@@ -459,6 +423,24 @@ public class Swerve extends TunerSwerveDrivetrain implements Subsystem {
 				}
 			}
 		});
+	}
+
+	public void addVisionMeasurement(
+		Pose2d visionPose, 
+		double timestampSeconds, 
+		edu.wpi.first.math.Matrix<edu.wpi.first.math.numbers.N3, edu.wpi.first.math.numbers.N1> stdDevs) {
+		// Check if the robot is rotating too quickly
+		boolean rotatingTooFast = Math.abs(getState().Speeds.omegaRadiansPerSecond) > 2.0;
+		
+		// Only add vision measurement if we're not rotating too quickly
+		if (!rotatingTooFast) {
+			// Call the parent method to add vision measurement with standard deviation
+			super.addVisionMeasurement(visionPose, timestampSeconds, stdDevs);
+		}
+	}
+
+	public void setVision(Vision vision) {
+		this.vision = vision;
 	}
 
 	@Override
