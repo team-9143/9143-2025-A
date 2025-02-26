@@ -1,4 +1,3 @@
-/*
 package frc.robot.subsystems;
 
 import java.util.Optional;
@@ -17,17 +16,21 @@ public class Vision extends SubsystemBase {
 
 	// Shuffleboard
 	private final ShuffleboardTab visionTab = Shuffleboard.getTab("Vision");
+	/*
 	private final GenericEntry trackingEnabledWidget;
 	private final GenericEntry bestTagIdWidget;
 	private final GenericEntry bestTagDistanceWidget;
 	private final GenericEntry bestTagHorizontalOffsetWidget;
+	*/
 
 	public Vision() {
+		/*
 		// Initialize Shuffleboard widgets
 		trackingEnabledWidget = visionTab.add("Tracking Enabled", false).getEntry();
 		bestTagIdWidget = visionTab.add("Best Tag ID", 0).getEntry();
 		bestTagDistanceWidget = visionTab.add("Best Tag Distance", 0.0).getEntry();
 		bestTagHorizontalOffsetWidget = visionTab.add("Best Tag Horizontal Offset", 0.0).getEntry();
+		*/
 
 		// Set all Limelights to AprilTag pipeline (Pipeline 0)
 		for (String name : VisionConstants.LIMELIGHT_NAMES) {
@@ -36,13 +39,14 @@ public class Vision extends SubsystemBase {
 	}
 
 	// Toggles AprilTag tracking and controls Limelight LEDs.
-	public void toggleTracking() {
-		trackingEnabled = !trackingEnabled;
+	public void toggleTracking(boolean enabled) {
+		trackingEnabled = enabled;
 		for (String name : VisionConstants.LIMELIGHT_NAMES) {
-			LimelightHelpers.setLEDMode_ForceOff("limelight-" + name);
 			if (trackingEnabled) {
 				LimelightHelpers.setLEDMode_ForceOn("limelight-" + name);
-			}
+			} else {
+                LimelightHelpers.setLEDMode_ForceOff("limelight-" + name);
+            }
 		}
 	}
 
@@ -53,19 +57,23 @@ public class Vision extends SubsystemBase {
 
     // Retrieves the horizontal offset for a specific AprilTag.
     public double getTargetHorizontalOffset(int tagId) {
-        if (tagId >= 0 && tagId < VisionConstants.APRILTAG_OFFSETS.length) {
-            return VisionConstants.APRILTAG_OFFSETS[tagId][0];
-        }
-        return 0.0;
-    }
+		if (tagId >= 0 && tagId < VisionConstants.APRILTAG_OFFSETS.length) {
+			return VisionConstants.APRILTAG_OFFSETS[tagId][0];
+		}
+		// Return default value and log warning
+		System.out.println("Warning: Tag ID " + tagId + " out of bounds");
+		return 0.0;
+	}
 
     // Retrieves the vertical offset for a specific AprilTag.
     public double getTargetVerticalOffset(int tagId) {
-        if (tagId >= 0 && tagId < VisionConstants.APRILTAG_OFFSETS.length) {
-            return VisionConstants.APRILTAG_OFFSETS[tagId][1];
-        }
-        return 0.0;
-    }
+		if (tagId >= 0 && tagId < VisionConstants.APRILTAG_OFFSETS.length) {
+			return VisionConstants.APRILTAG_OFFSETS[tagId][1];
+		}
+		// Return default value and log warning
+		System.out.println("Warning: Tag ID " + tagId + " out of bounds");
+		return 0.0;
+	}
 
 	// Retrieves the best AprilTag target from all Limelights.
 	public Optional<AprilTagTarget> getBestTarget() {
@@ -116,6 +124,7 @@ public class Vision extends SubsystemBase {
 		public final double poseX;
 		public final double poseY;
 		public final String limelightName;
+		public double ty;
 
 		public AprilTagTarget(int id, double tx, double poseX, double poseY, String limelightName) {
 			this.id = id;
@@ -130,12 +139,13 @@ public class Vision extends SubsystemBase {
 	public void periodic() {
 		// Update Shuffleboard
 		Optional<AprilTagTarget> target = getBestTarget();
+		/*
 		trackingEnabledWidget.setBoolean(trackingEnabled);
 		if (target.isPresent()) {
 			bestTagIdWidget.setDouble(target.get().id);
 			bestTagDistanceWidget.setDouble(Math.hypot(target.get().poseX, target.get().poseY));
 			bestTagHorizontalOffsetWidget.setDouble(target.get().poseY);
 		}
+		*/
 	}
 }
-*/

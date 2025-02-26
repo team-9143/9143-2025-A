@@ -1,8 +1,9 @@
 package frc.robot.subsystems;
 
+import java.util.Map;
+
 import com.revrobotics.RelativeEncoder;
 import com.revrobotics.spark.ClosedLoopSlot;
-import com.revrobotics.spark.SparkBase;
 import com.revrobotics.spark.SparkBase.ControlType;
 import com.revrobotics.spark.SparkBase.PersistMode;
 import com.revrobotics.spark.SparkBase.ResetMode;
@@ -16,10 +17,7 @@ import com.revrobotics.spark.config.SparkMaxConfig;
 import edu.wpi.first.wpilibj.shuffleboard.BuiltInWidgets;
 import edu.wpi.first.wpilibj.shuffleboard.Shuffleboard;
 import edu.wpi.first.wpilibj.shuffleboard.ShuffleboardTab;
-import edu.wpi.first.wpilibj.shuffleboard.SimpleWidget;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
-
-import java.util.Map;
 
 import frc.robot.Constants.ElevatorConstants;
 
@@ -33,11 +31,12 @@ public class Elevator extends SubsystemBase {
 	private final SparkClosedLoopController rightController;
 	private final SparkMaxConfig leftConfig;
 	private final SparkMaxConfig rightConfig;
-	private final ShuffleboardTab tab;
-	private SimpleWidget targetPositionWidget;
-	private SimpleWidget manualControlWidget;
-	private SimpleWidget manualSpeedWidget;
-	private SimpleWidget resetEncoderWidget;
+	private final ShuffleboardTab elevatorTab;
+
+	// Track target position internally instead of reading from Shuffleboard
+	private double currentTargetPosition = 0.0;
+	// Track manual mode state internally
+	private boolean manualModeEnabled = false;
 
 	public Elevator() {
 		// Initialize motors
@@ -57,8 +56,9 @@ public class Elevator extends SubsystemBase {
 		leftController = leftMotor.getClosedLoopController();
 		rightController = rightMotor.getClosedLoopController();
 
-		// Initialize Shuffleboard tab and widgets
-		tab = Shuffleboard.getTab("Elevator");
+		// Initialize Shuffleboard tab and information displays
+		elevatorTab = Shuffleboard.getTab("Elevator");
+		
 		configureShuffleboard();
 	}
 
@@ -84,72 +84,96 @@ public class Elevator extends SubsystemBase {
 	}
 
 	private void configureShuffleboard() {
-		// Control widgets
-		targetPositionWidget = tab.add("Target Position", 0.0)
-			.withWidget(BuiltInWidgets.kNumberSlider)
-			.withProperties(Map.of(
-				"Min", ElevatorConstants.ELEVATOR_MIN_POSITION,
-				"Max", ElevatorConstants.ELEVATOR_MAX_POSITION))
-			.withPosition(0, 0)
-			.withSize(2, 1);
-
-		manualControlWidget = tab.add("Manual Mode", false)
-			.withWidget(BuiltInWidgets.kToggleSwitch)
-			.withPosition(2, 0)
-			.withSize(1, 1);
-
-		manualSpeedWidget = tab.add("Manual Speed", 0.0)
-			.withWidget(BuiltInWidgets.kNumberSlider)
-			.withProperties(Map.of("Min", -1.0, "Max", 1.0))
-			.withPosition(3, 0)
-			.withSize(2, 1);
-
-		resetEncoderWidget = tab.add("Reset Encoders", false)
-			.withWidget(BuiltInWidgets.kToggleButton)
-			.withPosition(5, 0)
-			.withSize(1, 1);
-
-		// Status widgets
-		tab.addNumber("Current Height", this::getCurrentPosition)
+		// Status Layout - Boolean indicators
+		elevatorTab.addBoolean("At Target", this::isAtTargetPosition)
+			.withWidget(BuiltInWidgets.kBooleanBox)
+			.withSize(3, 2)
+			.withPosition(0,0);
+		
+		elevatorTab.addBoolean("Within Bounds", () -> !isElevatorOutOfBounds())
+			.withWidget(BuiltInWidgets.kBooleanBox)
+			.withSize(3, 2)
+			.withPosition(0,2);
+		
+		elevatorTab.addBoolean("Manual Mode", () -> manualModeEnabled)
+			.withWidget(BuiltInWidgets.kBooleanBox)
+			.withSize(3, 2)
+			.withPosition(0,4);
+		
+		// Position Layout - Height information
+		elevatorTab.addNumber("Current Height", this::getCurrentPosition)
 			.withWidget(BuiltInWidgets.kDial)
 			.withProperties(Map.of(
 				"Min", ElevatorConstants.ELEVATOR_MIN_POSITION,
 				"Max", ElevatorConstants.ELEVATOR_MAX_POSITION))
-			.withPosition(0, 1)
-			.withSize(2, 2);
-
-		tab.addBoolean("At Target", this::isAtTargetPosition)
-			.withWidget(BuiltInWidgets.kBooleanBox)
-			.withPosition(2, 1)
-			.withSize(1, 1);
-
-		tab.addNumber("Left Motor Current", leftMotor::getOutputCurrent)
-			.withPosition(3, 1)
-			.withSize(1, 1);
+			.withSize(3, 2)
+			.withPosition(3,0);
+		
+		elevatorTab.addNumber("Target Height", () -> currentTargetPosition)
+			.withSize(3, 2)
+			.withPosition(3,2);
+		
+		elevatorTab.addNumber("Position Error", () -> currentTargetPosition - getCurrentPosition())
+			.withSize(3, 2)
+			.withPosition(3, 4);
+		
+		elevatorTab.addNumber("Left Encoder", () -> leftEncoder.getPosition())
+			.withSize(3, 2)
+			.withPosition(0, 6);
+		
+		elevatorTab.addNumber("Right Encoder", () -> rightEncoder.getPosition())
+			.withSize(3, 2)
+			.withPosition(3, 6);
 			
-		tab.addNumber("Right Motor Current", rightMotor::getOutputCurrent)
-			.withPosition(4, 1)
-			.withSize(1, 1);
+		// Left Motor Layout - Current and output information
+		elevatorTab.addNumber("Left Motor Current", leftMotor::getOutputCurrent)
+			.withWidget(BuiltInWidgets.kGraph)
+			.withSize(5, 4)
+			.withPosition(6, 0);
+		
+		elevatorTab.addNumber("Left Motor Output", leftMotor::getAppliedOutput)
+			.withWidget(BuiltInWidgets.kGraph)
+			.withSize(5, 4)
+			.withPosition(6, 4);
 
-		// PID values
-		tab.addNumber("P Gain", () -> ElevatorConstants.ELEVATOR_kP)
-			.withPosition(6, 0)
-			.withSize(1, 1);
-		tab.addNumber("I Gain", () -> ElevatorConstants.ELEVATOR_kI)
-			.withPosition(6, 1)
-			.withSize(1, 1);
-		tab.addNumber("D Gain", () -> ElevatorConstants.ELEVATOR_kD)
-			.withPosition(7, 0)
-			.withSize(1, 1);
-		tab.addNumber("F Gain", () -> ElevatorConstants.ELEVATOR_kF)
-			.withPosition(7, 1)
-			.withSize(1, 1);
+		// Right Motor Layout - Current and output information
+		elevatorTab.addNumber("Right Motor Current", rightMotor::getOutputCurrent)
+			.withWidget(BuiltInWidgets.kGraph)
+			.withSize(5, 4)
+			.withPosition(11, 0);
+		
+		elevatorTab.addNumber("Right Motor Output", rightMotor::getAppliedOutput)
+			.withWidget(BuiltInWidgets.kGraph)
+			.withSize(5, 4)
+			.withPosition(11, 4);
+			
+		// PID Layout - Control parameters
+		elevatorTab.addNumber("P Gain", () -> ElevatorConstants.ELEVATOR_kP)
+			.withSize(3, 2)
+			.withPosition(16, 0);
+			
+		elevatorTab.addNumber("I Gain", () -> ElevatorConstants.ELEVATOR_kI)
+			.withSize(3, 2)	
+			.withPosition(16, 2);
+		
+		elevatorTab.addNumber("D Gain", () -> ElevatorConstants.ELEVATOR_kD)
+			.withSize(3, 2)
+			.withPosition(16, 4);
+		
+		elevatorTab.addNumber("F Gain", () -> ElevatorConstants.ELEVATOR_kF)
+			.withSize(3, 2)
+			.withPosition(16, 6);
 	}
 
 	public void setPosition(double targetPosition) {
 		// Clamp target position within safe limits
 		targetPosition = Math.min(Math.max(targetPosition, ElevatorConstants.ELEVATOR_MIN_POSITION),
 			ElevatorConstants.ELEVATOR_MAX_POSITION);
+		
+		// Update internal target position tracking
+		currentTargetPosition = targetPosition;
+
+		System.out.println("Setting elevator position to: " + targetPosition); // Debug print
 
 		// Calculate dynamic feed forward based on gravity compensation
 		double ff = calculateFeedForward(targetPosition);
@@ -159,7 +183,6 @@ public class Elevator extends SubsystemBase {
 
 		leftController.setReference(targetPosition, ControlType.kPosition, slot, ff);
 		rightController.setReference(targetPosition, ControlType.kPosition, slot, ff);
-		targetPositionWidget.getEntry().setDouble(targetPosition);
 	}
 
 	public void resetEncoders() {
@@ -202,9 +225,8 @@ public class Elevator extends SubsystemBase {
 	}
 
 	public boolean isAtTargetPosition() {
-		double targetPosition = targetPositionWidget.getEntry().getDouble(0);
 		double currentPosition = getCurrentPosition();
-		return Math.abs(targetPosition - currentPosition) <= ElevatorConstants.ELEVATOR_ALLOWED_ERROR;
+		return Math.abs(currentTargetPosition - currentPosition) <= ElevatorConstants.ELEVATOR_ALLOWED_ERROR;
 	}
 
 	private double calculateFeedForward(double targetPosition) {
@@ -212,23 +234,34 @@ public class Elevator extends SubsystemBase {
 		return ElevatorConstants.ELEVATOR_kF * Math.sin(Math.toRadians(targetPosition));
 	}
 
+	public void setManualMode(boolean enabled) {
+		manualModeEnabled = enabled;
+	}
+	
+	public boolean isInManualMode() {
+		return manualModeEnabled;
+	}
+
 	@Override
 	public void periodic() {
-		// Check for encoder reset
-		if (resetEncoderWidget.getEntry().getBoolean(false)) {
-			resetEncoders();
-			resetEncoderWidget.getEntry().setBoolean(false);
-		}
-
-		// Control logic
-		if (manualControlWidget.getEntry().getBoolean(false)) {
-			// Manual control
-			double manualSpeed = manualSpeedWidget.getEntry().getDouble(0);
-			manualControl(manualSpeed);
-		} else {
-			// Position control
-			double targetPosition = targetPositionWidget.getEntry().getDouble(0);
-			setPosition(targetPosition);
-		}
+		// Safety checks
+		performSafetyChecks();
 	}
+	
+	// Performs all safety checks and takes appropriate actions
+    private void performSafetyChecks() {
+        // Check for out-of-bounds conditions
+        if (isElevatorOutOfBounds() && !manualModeEnabled) {
+            System.err.println("WARNING: Elevator out of bounds! Position: " + getCurrentPosition());
+            stopElevator();
+        }
+        
+        // Check for encoder synchronization
+        if (Math.abs(leftEncoder.getPosition() - rightEncoder.getPosition()) > 
+            ElevatorConstants.ELEVATOR_ALLOWED_ERROR) {
+            System.err.println("WARNING: Elevator encoders out of sync!");
+            System.err.println("Left encoder: " + leftEncoder.getPosition());
+            System.err.println("Right encoder: " + rightEncoder.getPosition());
+        }
+    }
 }

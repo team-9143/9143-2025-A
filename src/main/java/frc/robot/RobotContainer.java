@@ -19,12 +19,14 @@ import edu.wpi.first.wpilibj2.command.sysid.SysIdRoutine.Direction;
 
 import frc.robot.generated.TunerConstants;
 import frc.robot.Constants.ElevatorConstants;
+import frc.robot.Constants.AlLowConstants;
+import frc.robot.Constants.CorAlConstants;
 
 import frc.robot.subsystems.Swerve;
 import frc.robot.subsystems.Elevator;
-//import frc.robot.subsystems.CorAl;
-//import frc.robot.subsystems.AlLow;
-// import frc.robot.subsystems.Vision;
+import frc.robot.subsystems.CorAl;
+// import frc.robot.subsystems.AlLow;
+import frc.robot.subsystems.Vision;
 
 public class RobotContainer {
 	private double MaxSpeed = TunerConstants.kSpeedAt12Volts.in(MetersPerSecond); // kSpeedAt12Volts desired top speed
@@ -47,18 +49,18 @@ public class RobotContainer {
 	public final Swerve drivetrain = TunerConstants.createDrivetrain();
 
 	private final Elevator elevator = new Elevator();
-	//private final CorAl coral = new CorAl();
-	//private final AlLow allow = new AlLow();
-	// private final Vision vision = new Vision();
+	private final CorAl coral = new CorAl();
+	// private final AlLow allow = new AlLow();
+	private final Vision vision = new Vision();
 
 	private final SendableChooser<Command> autoChooser;
 	private final ShuffleboardTab autoTab = Shuffleboard.getTab("Auto");
 
 	public RobotContainer() {
 		// Create auto chooser and put it on the Auto tab in Shuffleboard
-		autoChooser = AutoBuilder.buildAutoChooser("Test Auto");
+		autoChooser = AutoBuilder.buildAutoChooser();
 		autoTab.add("Auto Mode", autoChooser)
-			.withSize(2, 1)
+			.withSize(5, 3)
 			.withPosition(0, 0);
 
 		configureBindings();
@@ -98,85 +100,138 @@ public class RobotContainer {
 		// Reset the field-centric heading on left bumper press
 		driver_controller.leftBumper().onTrue(drivetrain.runOnce(() -> drivetrain.seedFieldCentric()));
 
-		/*
 		driver_controller.y().onTrue(Commands.runOnce(() -> {
-			vision.toggleTracking();
-			if (vision.isTrackingEnabled()) {
-				drivetrain.createAprilTagTrackingCommand().schedule();
+			boolean newTrackingState = !vision.isTrackingEnabled();
+			vision.toggleTracking(newTrackingState);
+			
+			if (newTrackingState) {
+				drivetrain.aprilTagTrackingCommand.schedule();
 			} else {
-				drivetrain.getCurrentCommand().cancel();
+				if (drivetrain.getCurrentCommand() == drivetrain.aprilTagTrackingCommand) {
+					drivetrain.aprilTagTrackingCommand.cancel();
+				}
+				// Stop the robot when tracking is disabled
+				drivetrain.setControl(new SwerveRequest.RobotCentric()
+					.withVelocityX(0)
+					.withVelocityY(0)
+					.withRotationalRate(0));
 			}
 		}));
-		*/
 
 		drivetrain.registerTelemetry(logger::telemeterize);
 		
 		// Elevator preset heights
-		operator_controller.povDown().onTrue(Commands.runOnce(() -> elevator.setPosition(ElevatorConstants.PresetHeights.BASE), elevator));
-		operator_controller.povLeft().onTrue(Commands.runOnce(() -> elevator.setPosition(ElevatorConstants.PresetHeights.CORAL_L2), elevator));
-		operator_controller.povRight().onTrue(Commands.runOnce(() -> elevator.setPosition(ElevatorConstants.PresetHeights.CORAL_L3), elevator));
-		operator_controller.povUp().onTrue(Commands.runOnce(() -> elevator.setPosition(ElevatorConstants.PresetHeights.CORAL_L4), elevator));
+		operator_controller.povDown().onTrue(Commands.runOnce(() -> {
+			elevator.setManualMode(false);
+			elevator.setPosition(ElevatorConstants.PresetHeights.BASE);
+		}, elevator).until(elevator::isAtTargetPosition));
+
+		operator_controller.povLeft().onTrue(Commands.runOnce(() -> {
+			elevator.setManualMode(false);
+			elevator.setPosition(ElevatorConstants.PresetHeights.CORAL_L2);
+		}, elevator).until(elevator::isAtTargetPosition));
+
+		operator_controller.povRight().onTrue(Commands.runOnce(() -> {
+			elevator.setManualMode(false);
+			elevator.setPosition(ElevatorConstants.PresetHeights.CORAL_L3);
+		}, elevator).until(elevator::isAtTargetPosition));
+
+		operator_controller.povUp().onTrue(Commands.runOnce(() -> {
+			elevator.setManualMode(false);
+			elevator.setPosition(ElevatorConstants.PresetHeights.CORAL_L4);
+		}, elevator).until(elevator::isAtTargetPosition));
 
 		// Elevator encoder reset
 		operator_controller.leftBumper().onTrue(Commands.runOnce(() -> elevator.resetEncoders(), elevator).ignoringDisable(true));
 
 		// Elevator manual control
 		elevator.setDefaultCommand(Commands.run(() -> {
-			double speed = -operator_controller.getLeftY(); // Use left stick Y for manual control
-			elevator.manualControl(speed);
+			double speed = -operator_controller.getLeftY();
+			if (Math.abs(speed) > ElevatorConstants.ELEVATOR_MANUAL_CONTROL_DEADBAND) {
+				// Only set manual mode if stick is actually being moved
+				elevator.setManualMode(true);
+				elevator.manualControl(speed);
+			} else {
+				elevator.stopElevator();
+			}
 		}, elevator));
 
-		/*
+		// CorAl lifting
+		operator_controller.rightTrigger().onTrue(
+			Commands.sequence(
+				Commands.runOnce(coral::stopIntake, coral),
+				Commands.runOnce(() -> coral.setPivotAngle(CorAlConstants.RAISE_ANGLE), coral)				
+			)
+		);
+
 		// CorAl retraction
-		operator_controller.a().onTrue(Commands.runOnce(() -> {
-			coral.setPivotAngle(CorAlConstants.CORAL_BASE_ANGLE);
-			coral.stopIntake();
-		}, coral));
+		operator_controller.a().onTrue(
+			Commands.sequence(
+				Commands.runOnce(coral::stopIntake, coral),
+				Commands.runOnce(() -> coral.setPivotAngle(CorAlConstants.BASE_ANGLE), coral)
+			)
+		);
 
 		// Coral scoring
-		operator_controller.x().onTrue(Commands.runOnce(() -> {
-			coral.setPivotAngle(CorAlConstants.CORAL_BASE_ANGLE);
-			coral.setIntakeSpeed(CorAlConstants.CORAL_INTAKE_SPEED);
-		}, coral));
+		operator_controller.x().onTrue(
+			Commands.sequence(
+				Commands.runOnce(() -> coral.setPivotAngle(CorAlConstants.BASE_ANGLE), coral),
+				Commands.waitUntil(coral::isAtTargetAngle),
+				Commands.runOnce(() -> coral.startRollersWithTimer(CorAlConstants.CORAL_INTAKE_SPEED, CorAlConstants.ROLLER_RUN_TIME), coral)
+			)
+		);
 
 		// Algae intaking
-		operator_controller.b().onTrue(Commands.runOnce(() -> {
-			coral.setPivotAngle(CorAlConstants.ALGAE_INTAKE_ANGLE);
-			coral.setIntakeSpeed(CorAlConstants.ALGAE_INTAKE_SPEED);
-		}, coral));
+		operator_controller.b().onTrue(
+			Commands.sequence(
+				Commands.runOnce(() -> coral.setPivotAngle(CorAlConstants.ALGAE_INTAKE_ANGLE), coral),
+				Commands.waitUntil(coral::isAtTargetAngle),
+				Commands.runOnce(() -> coral.startRollersWithTimer(CorAlConstants.ALGAE_INTAKE_SPEED, CorAlConstants.ROLLER_RUN_TIME), coral)
+			)
+		);
 
 		// Algae scoring
-		operator_controller.y().onTrue(Commands.runOnce(() -> {
-			coral.setPivotAngle(CorAlConstants.ALGAE_SCORE_ANGLE);
-			coral.setIntakeSpeed(CorAlConstants.CORAL_INTAKE_SPEED);
-		}, coral));
+		operator_controller.y().onTrue(
+			Commands.sequence(
+				Commands.runOnce(() -> coral.setPivotAngle(CorAlConstants.ALGAE_SCORE_ANGLE), coral),
+				Commands.waitUntil(coral::isAtTargetAngle),
+				Commands.runOnce(() -> coral.startRollersWithTimer(CorAlConstants.CORAL_INTAKE_SPEED, CorAlConstants.ROLLER_RUN_TIME), coral)
+			)
+		);
 
 		// Pivot encoder reset
 		operator_controller.rightBumper().onTrue(Commands.runOnce(() -> coral.resetPivotEncoder(), coral).ignoringDisable(true));
 
 		// Pivot manual control
 		coral.setDefaultCommand(Commands.run(() -> {
-			double speed = operator_controller.getRightX(); // Use right stick X for manual control
-			coral.manualPivotControl(speed);
+			double stickInput = operator_controller.getRightX();
+			// Only apply manual control if outside deadband
+			if (Math.abs(stickInput) >= CorAlConstants.CORAL_MANUAL_CONTROL_DEADBAND) {
+				double speed = stickInput * CorAlConstants.CORAL_MANUAL_SPEED_LIMIT;
+				coral.manualPivotControl(speed);
+			} else {
+				coral.stopPivot();
+			}
 		}, coral));
 
+		/*
 		// AlLow extension (with rollers activated)
-		operator_controller.rightBumper().whileTrue(Commands.run(() -> {
-			elevator.setPosition(AlLowConstants.ALLOW_INTAKE_ANGLE); // Extend to intaking angle
+		operator_controller.rightTrigger().whileTrue(Commands.run(() -> {
+			allow.setPivotAngle(AlLowConstants.ALLOW_INTAKE_ANGLE); // Extend to intaking angle
 			allow.setRollerSpeed(-1.0); // Spin rollers inward
-		}, elevator, allow));
+		}, allow));
 
 		// AlLow retraction (with rollers stopped)
-		operator_controller.leftBumper().onTrue(Commands.runOnce(() -> {
-			elevator.setPosition(AlLowConstants.ALLOW_BASE_ANGLE); // Retract to base angle
+		operator_controller.leftTrigger().onTrue(Commands.runOnce(() -> {
+			allow.setPivotAngle(AlLowConstants.ALLOW_BASE_ANGLE); // Retract to base angle
 			allow.stopRoller(); // Stop rollers
-		}, elevator, allow));
+		}, allow));
 
 		// AlLow ejection
-		operator_controller.b().whileTrue(Commands.run(() -> allow.setRollerSpeed(1.0), allow));
+		operator_controller.back().whileTrue(Commands.run(() -> allow.setRollerSpeed(1.0), allow));
 
 		// AlLow pivot encoder reset
-		operator_controller.y().onTrue(Commands.runOnce(() -> allow.resetPivotEncoder(), allow).ignoringDisable(true));
+		operator_controller.start().onTrue(Commands.runOnce(() -> allow.resetPivotEncoder(), allow).ignoringDisable(true));
 
 		// AlLow pivot manual control
 		allow.setDefaultCommand(Commands.run(() -> {
@@ -194,9 +249,9 @@ public class RobotContainer {
 	public void disabledInit() {
 		// Stop all subsystems when disabled
 		elevator.stopElevator();
-		//coral.stopPivot();
-		//coral.stopRoller();
-		//allow.stopPivot();
-		//allow.stopRoller();
+		coral.stopPivot();
+		coral.stopIntake();
+		// allow.stopPivot();
+		// allow.stopRoller();
 	}
 }

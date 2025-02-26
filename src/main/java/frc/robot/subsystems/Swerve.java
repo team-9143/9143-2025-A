@@ -17,7 +17,6 @@ import com.pathplanner.lib.config.RobotConfig;
 import com.pathplanner.lib.controllers.PPHolonomicDriveController;
 
 import edu.wpi.first.math.Matrix;
-import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.numbers.N1;
 import edu.wpi.first.math.numbers.N3;
@@ -49,14 +48,6 @@ public class Swerve extends TunerSwerveDrivetrain implements Subsystem {
 	// Keep track if we've ever applied the operator perspective before or not
 	private boolean m_hasAppliedOperatorPerspective = false;
 
-	// Vision subsystem for AprilTag tracking
-	// private final Vision vision;
-
-	// Shuffleboard tab
-	private final ShuffleboardTab swerveTab = Shuffleboard.getTab("Swerve");
-	private final ShuffleboardLayout drivetrainLayout;
-	private final ShuffleboardLayout trackingLayout;
-
 	// Swerve request to apply during robot-centric path following
 	private final SwerveRequest.ApplyRobotSpeeds m_pathApplyRobotSpeeds = new SwerveRequest.ApplyRobotSpeeds();
 
@@ -64,6 +55,17 @@ public class Swerve extends TunerSwerveDrivetrain implements Subsystem {
 	private final SwerveRequest.SysIdSwerveTranslation m_translationCharacterization = new SwerveRequest.SysIdSwerveTranslation();
 	private final SwerveRequest.SysIdSwerveSteerGains m_steerCharacterization = new SwerveRequest.SysIdSwerveSteerGains();
 	private final SwerveRequest.SysIdSwerveRotation m_rotationCharacterization = new SwerveRequest.SysIdSwerveRotation();
+
+	// Vision subsystem for AprilTag tracking
+	private final Vision vision;
+
+	// Track vision tracking state internally
+	private boolean isVisionTrackingEnabled = false;
+	
+	public Command aprilTagTrackingCommand;
+
+	// Shuffleboard tab and layouts
+	private final ShuffleboardTab swerveTab = Shuffleboard.getTab("Swerve");
 
 	// SysId routine for characterizing translation. This is used to find PID gains for the drive motors.
 	private final SysIdRoutine m_sysIdRoutineTranslation = new SysIdRoutine(
@@ -98,13 +100,13 @@ public class Swerve extends TunerSwerveDrivetrain implements Subsystem {
 	);
 
 	/*
-	 * SysId routine for characterizing rotation.
-	 * This is used to find PID gains for the FieldCentricFacingAngle HeadingController.
-	 * See the documentation of SwerveRequest.SysIdSwerveRotation for info on importing the log to SysId.
-	 */
+     * SysId routine for characterizing rotation.
+     * This is used to find PID gains for the FieldCentricFacingAngle HeadingController.
+     * See the documentation of SwerveRequest.SysIdSwerveRotation for info on importing the log to SysId.
+     */
 	private final SysIdRoutine m_sysIdRoutineRotation = new SysIdRoutine(
 		new SysIdRoutine.Config(
-			// This is in radians per second², but SysId only supports "volts per second"
+			// This is in radians per secondÂ², but SysId only supports "volts per second"
 			Volts.of(Math.PI / 6).per(Second),
 			// This is in radians per second, but SysId only supports "volts"
 			Volts.of(Math.PI),
@@ -124,7 +126,7 @@ public class Swerve extends TunerSwerveDrivetrain implements Subsystem {
 		)
 	);
 
-	/* The SysId routine to test */
+	// The SysId routine to test
 	private SysIdRoutine m_sysIdRoutineToApply = m_sysIdRoutineTranslation;
 
 	/**
@@ -138,36 +140,25 @@ public class Swerve extends TunerSwerveDrivetrain implements Subsystem {
 		SwerveModuleConstants<?, ?, ?>... modules
 	) {
 		super(drivetrainConstants, modules);
-		// this.vision = new Vision();
 
-        // Initialize Shuffleboard layouts
-        drivetrainLayout = swerveTab.getLayout("Drivetrain Status", BuiltInLayouts.kList)
-            .withSize(2, 4)
-            .withPosition(0, 0);
-            
-        trackingLayout = swerveTab.getLayout("AprilTag Tracking", BuiltInLayouts.kList)
-            .withSize(2, 3)
-            .withPosition(2, 0);
-            
+		this.vision = new Vision();
+
         configureShuffleboardData();
 		
 		if (Utils.isSimulation()) {
 			startSimThread();
 		}
+
+		aprilTagTrackingCommand = createAprilTagTrackingCommand();
+
 		configureAutoBuilder();
 	}
 
 	/**
 	 * Constructs a CTRE SwerveDrivetrain using the specified constants.
-	 * <p>
-	 * This constructs the underlying hardware devices, so users should not construct
-	 * the devices themselves. If they need the devices, they can access them through
-	 * getters in the classes.
 	 *
 	 * @param drivetrainConstants     Drivetrain-wide constants for the swerve drive
-	 * @param odometryUpdateFrequency The frequency to run the odometry loop. If
-	 *                                unspecified or set to 0 Hz, this is 250 Hz on
-	 *                                CAN FD, and 100 Hz on CAN 2.0.
+	 * @param odometryUpdateFrequency The frequency to run the odometry loop
 	 * @param modules                 Constants for each specific module
 	 */
 	public Swerve(
@@ -176,42 +167,27 @@ public class Swerve extends TunerSwerveDrivetrain implements Subsystem {
 		SwerveModuleConstants<?, ?, ?>... modules
 	) {
 		super(drivetrainConstants, odometryUpdateFrequency, modules);
-		// this.vision = new Vision();
 
-        // Initialize Shuffleboard layouts
-        drivetrainLayout = swerveTab.getLayout("Drivetrain Status", BuiltInLayouts.kList)
-            .withSize(2, 4)
-            .withPosition(0, 0);
-            
-        trackingLayout = swerveTab.getLayout("AprilTag Tracking", BuiltInLayouts.kList)
-            .withSize(2, 3)
-            .withPosition(2, 0);
+		this.vision = new Vision();
             
         configureShuffleboardData();
 
 		if (Utils.isSimulation()) {
 			startSimThread();
 		}
+
+		aprilTagTrackingCommand = createAprilTagTrackingCommand();
+
 		configureAutoBuilder();
 	}
 
 	/**
 	 * Constructs a CTRE SwerveDrivetrain using the specified constants.
-	 * <p>
-	 * This constructs the underlying hardware devices, so users should not construct
-	 * the devices themselves. If they need the devices, they can access them through
-	 * getters in the classes.
 	 *
 	 * @param drivetrainConstants       Drivetrain-wide constants for the swerve drive
-	 * @param odometryUpdateFrequency   The frequency to run the odometry loop. If
-	 *                                  unspecified or set to 0 Hz, this is 250 Hz on
-	 *                                  CAN FD, and 100 Hz on CAN 2.0.
+	 * @param odometryUpdateFrequency   The frequency to run the odometry loop
 	 * @param odometryStandardDeviation The standard deviation for odometry calculation
-	 *                                  in the form [x, y, theta]ᵀ, with units in meters
-	 *                                  and radians
 	 * @param visionStandardDeviation   The standard deviation for vision calculation
-	 *                                  in the form [x, y, theta]ᵀ, with units in meters
-	 *                                  and radians
 	 * @param modules                   Constants for each specific module
 	 */
 	public Swerve(
@@ -222,22 +198,17 @@ public class Swerve extends TunerSwerveDrivetrain implements Subsystem {
 		SwerveModuleConstants<?, ?, ?>... modules
 	) {
 		super(drivetrainConstants, odometryUpdateFrequency, odometryStandardDeviation, visionStandardDeviation, modules);
-		// this.vision = new Vision();
 
-        // Initialize Shuffleboard layouts
-        drivetrainLayout = swerveTab.getLayout("Drivetrain Status", BuiltInLayouts.kList)
-            .withSize(2, 4)
-            .withPosition(0, 0);
-            
-        trackingLayout = swerveTab.getLayout("AprilTag Tracking", BuiltInLayouts.kList)
-            .withSize(2, 3)
-            .withPosition(2, 0);
+		this.vision = new Vision();
             
         configureShuffleboardData();
 
 		if (Utils.isSimulation()) {
 			startSimThread();
 		}
+
+		aprilTagTrackingCommand = createAprilTagTrackingCommand();
+
 		configureAutoBuilder();
 	}
 
@@ -263,7 +234,7 @@ public class Swerve extends TunerSwerveDrivetrain implements Subsystem {
 				config,
 				// Assume the path needs to be flipped for Red vs Blue, this is normally the case
 				() -> DriverStation.getAlliance().orElse(Alliance.Blue) == Alliance.Red,
-				this // Subsystem for requirements
+				this
 			);
 		} catch (Exception ex) {
 			DriverStation.reportError("Failed to load PathPlanner config and configure AutoBuilder", ex.getStackTrace());
@@ -271,16 +242,94 @@ public class Swerve extends TunerSwerveDrivetrain implements Subsystem {
 	}
 
 	private void configureShuffleboardData() {
-		// Drivetrain status
-		drivetrainLayout.addNumber("Robot X", () -> getState().Pose.getX())
+		// Robot Pose Layout
+		swerveTab.addNumber("X Position", () -> getState().Pose.getX())
+			.withWidget(BuiltInWidgets.kTextView)
+			.withSize(3, 2)
 			.withPosition(0, 0);
-		drivetrainLayout.addNumber("Robot Y", () -> getState().Pose.getY())
-			.withPosition(0, 1);
-		drivetrainLayout.addNumber("Robot Heading", () -> getState().Pose.getRotation().getDegrees())
+			
+		swerveTab.addNumber("Y Position", () -> getState().Pose.getY())
+			.withWidget(BuiltInWidgets.kTextView)
+			.withSize(3, 2)
 			.withPosition(0, 2);
-		drivetrainLayout.addNumber("Robot Speed", () -> 
+		
+		swerveTab.addNumber("Heading (deg)", () -> getState().Pose.getRotation().getDegrees())
+			.withWidget(BuiltInWidgets.kTextView)
+			.withSize(3, 2)
+			.withPosition(0, 4);
+		
+		// Robot Speeds Layout
+		swerveTab.addNumber("Speed (m/s)", () -> 
 			Math.hypot(getState().Speeds.vxMetersPerSecond, getState().Speeds.vyMetersPerSecond))
-			.withPosition(0, 3);
+			.withWidget(BuiltInWidgets.kGraph)
+			.withSize(2, 2)
+			.withPosition(3, 0);
+			
+		swerveTab.addNumber("Vx (m/s)", () -> getState().Speeds.vxMetersPerSecond)
+			.withWidget(BuiltInWidgets.kTextView)
+			.withSize(2, 2)
+			.withPosition(3, 2);
+			
+		swerveTab.addNumber("Vy (m/s)", () -> getState().Speeds.vyMetersPerSecond)
+			.withWidget(BuiltInWidgets.kTextView)
+			.withSize(2, 2)
+			.withPosition(3, 4);
+			
+		swerveTab.addNumber("Omega (rad/s)", () -> getState().Speeds.omegaRadiansPerSecond)
+			.withWidget(BuiltInWidgets.kTextView)
+			.withSize(2, 2)
+			.withPosition(3, 6);
+		
+		/*
+		// Module States Layout - Add entries for each module
+		for (int i = 1; i < 5; i++) {
+			final int moduleIndex = i;
+			String moduleName = "Module " + i;
+			
+			swerveTab.addNumber(moduleName + " Angle", () -> getState().ModuleStates[moduleIndex].angle.getDegrees())
+				.withSize(2, 2)
+				.withPosition(5, i * 2 - 2);
+				
+			swerveTab.addNumber(moduleName + " Speed", () -> getState().ModuleStates[moduleIndex].speedMetersPerSecond)
+				.withSize(2, 2)
+				.withPosition(7, i * 2 - 2);
+		
+		}
+		*/
+		
+		// Vision Status Layout
+		swerveTab.addBoolean("Vision Tracking Enabled", () -> isVisionTrackingEnabled)
+			.withWidget(BuiltInWidgets.kBooleanBox)
+			.withSize(3, 2)
+			.withPosition(9, 0);
+			
+		swerveTab.addBoolean("Target Detected", () -> vision.getBestTarget().isPresent())
+			.withWidget(BuiltInWidgets.kBooleanBox)
+			.withSize(3, 2)
+			.withPosition(9, 2);
+			
+		swerveTab.addNumber("Target ID", () -> 
+			vision.getBestTarget().isPresent() ? vision.getBestTarget().get().id : -1)
+			.withSize(3, 1)
+			.withPosition(9, 4);
+		
+		swerveTab.addNumber("Target Distance", () -> {
+			if (vision.getBestTarget().isPresent()) {
+				Vision.AprilTagTarget target = vision.getBestTarget().get();
+				return Math.hypot(target.poseX, target.poseY);
+			}
+			return 0.0;
+		}).withSize(3, 1).withPosition(9, 5);
+		
+		swerveTab.addNumber("Target Yaw", () -> 
+			vision.getBestTarget().isPresent() ? vision.getBestTarget().get().tx : 0.0)
+			.withSize(3, 1)
+			.withPosition(9, 6);
+			
+		swerveTab.addNumber("Target Pitch", () ->
+			vision.getBestTarget().isPresent() ? vision.getBestTarget().get().ty : 0.0)
+			.withSize(3, 1)
+			.withPosition(9, 7);
 	}
 
 	/**
@@ -315,47 +364,102 @@ public class Swerve extends TunerSwerveDrivetrain implements Subsystem {
 		return m_sysIdRoutineToApply.dynamic(direction);
 	}
 
-	/*
+	/**
+	 * Set the currently active SysId routine to use.
+	 * 
+	 * @param routineType The type of SysId routine to use
+	 */
+	public void setSysIdRoutine(SysIdRoutineType routineType) {
+		switch (routineType) {
+			case TRANSLATION:
+				m_sysIdRoutineToApply = m_sysIdRoutineTranslation;
+				break;
+			case STEER:
+				m_sysIdRoutineToApply = m_sysIdRoutineSteer;
+				break;
+			case ROTATION:
+				m_sysIdRoutineToApply = m_sysIdRoutineRotation;
+				break;
+		}
+	}
+	
+	/**
+	 * Enum for selecting which SysId routine to use
+	 */
+	public enum SysIdRoutineType {
+		TRANSLATION,
+		STEER,
+		ROTATION
+	}
+
+	/**
+	 * Enable or disable vision tracking
+	 * 
+	 * @param enabled Whether vision tracking should be enabled
+	 */
+	public void setVisionTrackingEnabled(boolean enabled) {
+		isVisionTrackingEnabled = enabled;
+		vision.toggleTracking(enabled);
+	}
+	
+	/**
+	 * Get whether vision tracking is currently enabled
+	 * 
+	 * @return Whether vision tracking is enabled
+	 */
+	public boolean isVisionTrackingEnabled() {
+		return isVisionTrackingEnabled;
+	}
+
 	// Creates a command to track the best AprilTag using vision.
 	public Command createAprilTagTrackingCommand() {
-        return run(() -> {
-            if (vision.isTrackingEnabled()) {
-                Optional<Vision.AprilTagTarget> target = vision.getBestTarget();
-                if (target.isPresent()) {
-                    // Retrieve target offsets from Constants
-                    double targetHorizontalOffset = vision.getTargetHorizontalOffset(target.get().id);
-                    double targetVerticalOffset = vision.getTargetVerticalOffset(target.get().id);
+		return run(() -> {
+			if (isVisionTrackingEnabled) {
+				Optional<Vision.AprilTagTarget> target = vision.getBestTarget();
+				if (target.isPresent()) {
+					// Validate tag ID is within bounds
+					int tagId = target.get().id;
+					if (tagId < 0 || tagId >= VisionConstants.APRILTAG_OFFSETS.length) {
+						System.out.println("Warning: AprilTag ID " + tagId + " out of bounds");
+						return;
+					}
+					
+					// Retrieve target offsets from Constants
+					double targetHorizontalOffset = vision.getTargetHorizontalOffset(tagId);
+					double targetVerticalOffset = vision.getTargetVerticalOffset(tagId);
 
-                    // Calculate errors
-                    double horizontalError = target.get().poseY - targetHorizontalOffset;
-                    double verticalError = Math.hypot(target.get().poseX, target.get().poseY) - targetVerticalOffset;
-                    double angleError = target.get().tx;
+					// Calculate distance directly from pose components
+					double currentDistance = Math.hypot(target.get().poseX, target.get().poseY);
+					
+					// Calculate errors
+					double horizontalError = target.get().poseY - targetHorizontalOffset;
+					double distanceError = currentDistance - targetVerticalOffset;
+					double angleError = target.get().tx;
 
-                    // Apply deadbands
-                    if (Math.abs(horizontalError) < VisionConstants.TrackingGains.VELOCITY_DEADBAND) horizontalError = 0;
-                    if (Math.abs(verticalError) < VisionConstants.TrackingGains.VELOCITY_DEADBAND) verticalError = 0;
-                    if (Math.abs(angleError) < VisionConstants.TrackingGains.ROTATION_DEADBAND) angleError = 0;
+					// Apply deadbands
+					if (Math.abs(horizontalError) < VisionConstants.TrackingGains.VELOCITY_DEADBAND) horizontalError = 0;
+					if (Math.abs(distanceError) < VisionConstants.TrackingGains.VELOCITY_DEADBAND) distanceError = 0;
+					if (Math.abs(angleError) < VisionConstants.TrackingGains.ROTATION_DEADBAND) angleError = 0;
 
-                    // Convert errors to robot-relative velocities
-                    double vx = -verticalError * VisionConstants.TrackingGains.DISTANCE_kP; // Forward/backward movement
-                    double vy = -horizontalError * VisionConstants.TrackingGains.DISTANCE_kP; // Left/right movement
-                    double omega = -angleError * VisionConstants.TrackingGains.ROTATION_kP; // Rotational movement
+					// Convert errors to robot-relative velocities
+					double vx = -distanceError * VisionConstants.TrackingGains.DISTANCE_kP; // Forward/backward movement
+					double vy = -horizontalError * VisionConstants.TrackingGains.DISTANCE_kP; // Left/right movement
+					double omega = -angleError * VisionConstants.TrackingGains.ROTATION_kP; // Rotational movement
 
-                    // Clamp velocities to maximum values
-                    vx = Math.min(Math.max(vx, -VisionConstants.TrackingGains.MAX_LINEAR_VELOCITY), VisionConstants.TrackingGains.MAX_LINEAR_VELOCITY);
-                    vy = Math.min(Math.max(vy, -VisionConstants.TrackingGains.MAX_LINEAR_VELOCITY), VisionConstants.TrackingGains.MAX_LINEAR_VELOCITY);
-                    omega = Math.min(Math.max(omega, -VisionConstants.TrackingGains.MAX_ANGULAR_VELOCITY), VisionConstants.TrackingGains.MAX_ANGULAR_VELOCITY);
+					// Clamp velocities to maximum values
+					vx = Math.min(Math.max(vx, -VisionConstants.TrackingGains.MAX_LINEAR_VELOCITY), VisionConstants.TrackingGains.MAX_LINEAR_VELOCITY);
+					vy = Math.min(Math.max(vy, -VisionConstants.TrackingGains.MAX_LINEAR_VELOCITY), VisionConstants.TrackingGains.MAX_LINEAR_VELOCITY);
+					omega = Math.min(Math.max(omega, -VisionConstants.TrackingGains.MAX_ANGULAR_VELOCITY), VisionConstants.TrackingGains.MAX_ANGULAR_VELOCITY);
 
-                    // Apply velocities using robot-centric control
-                    setControl(new SwerveRequest.RobotCentric()
-                        .withVelocityX(vx) // Forward/backward movement
-                        .withVelocityY(vy) // Left/right movement
-                        .withRotationalRate(omega)); // Rotation to align with the tag
-                }
-            }
-        });
-    }
-		*/
+					// Apply velocities using robot-centric control
+					setControl(new SwerveRequest.RobotCentric()
+						.withVelocityX(vx) // Forward/backward movement
+						.withVelocityY(vy) // Left/right movement
+						.withRotationalRate(omega)); // Rotation to align with the tag
+				}
+			}
+		});
+	}
 
 	@Override
 	public void periodic() {
