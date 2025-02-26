@@ -8,8 +8,8 @@
       },
       "prevControl": null,
       "nextControl": {
-        "x": 5.866753118043603,
-        "y": 3.7732961021476763
+        "x": 5.866596218892176,
+        "y": 3.7732602608418295
       },
       "isLocked": false,
       "linkedName": null
@@ -20,12 +20,12 @@
         "y": 5.25
       },
       "prevControl": {
-        "x": 5.948254198732895,
-        "y": 5.0270273029749815
+        "x": 6.002801156370486,
+        "y": 5.089649395339635
       },
       "nextControl": {
-        "x": 5.380883269856312,
-        "y": 5.9487348164288605
+        "x": 4.665862464096656,
+        "y": 6.207363864619724
       },
       "isLocked": false,
       "linkedName": null
@@ -36,8 +36,8 @@
         "y": 7.013
       },
       "prevControl": {
-        "x": 1.3700875265529642,
-        "y": 6.856664281165671
+        "x": 1.3678035922415188,
+        "y": 6.853856119128738
       },
       "nextControl": null,
       "isLocked": false,
@@ -49,10 +49,10 @@
   "pointTowardsZones": [],
   "eventMarkers": [],
   "globalConstraints": {
-    "maxVelocity": 5.96,
-    "maxAcceleration": 3.4,
-    "maxAngularVelocity": 270.0,
-    "maxAngularAcceleration": 100.0,
+    "maxVelocity": 3.0,
+    "maxAcceleration": 4.0,
+    "maxAngularVelocity": 540.0,
+    "maxAngularAcceleration": 720.0,
     "nominalVoltage": 12.0,
     "unlimited": false
   },
@@ -61,7 +61,7 @@
     "rotation": -54.0
   },
   "reversed": false,
-  "folder": null,
+  "folder": "Starting Back Mid Reef",
   "idealStartingState": {
     "velocity": 0.0,
     "rotation": 180.0

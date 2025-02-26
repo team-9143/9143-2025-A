@@ -1,0 +1,43 @@
+{
+  "version": "2025.0",
+  "command": {
+    "type": "sequential",
+    "data": {
+      "commands": [
+        {
+          "type": "path",
+          "data": {
+            "pathName": "Right Wall Line - Back Right Reef"
+          }
+        },
+        {
+          "type": "path",
+          "data": {
+            "pathName": "Back Right Reef - Right Station"
+          }
+        },
+        {
+          "type": "path",
+          "data": {
+            "pathName": "Right Station - Front Right Reef"
+          }
+        },
+        {
+          "type": "path",
+          "data": {
+            "pathName": "Front Right Reef - Right Station"
+          }
+        },
+        {
+          "type": "path",
+          "data": {
+            "pathName": "Right Station - Front Mid Reef"
+          }
+        }
+      ]
+    }
+  },
+  "resetOdom": true,
+  "folder": null,
+  "choreoAuto": false
+}
