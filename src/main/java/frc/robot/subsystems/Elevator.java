@@ -23,232 +23,238 @@ import frc.robot.Constants.ElevatorConstants;
 
 public class Elevator extends SubsystemBase {
 
-	private final SparkMax leftMotor;
-	private final SparkMax rightMotor;
-	private final RelativeEncoder leftEncoder;
-	private final RelativeEncoder rightEncoder;
-	private final SparkClosedLoopController leftController;
-	private final SparkClosedLoopController rightController;
-	private final SparkMaxConfig leftConfig;
-	private final SparkMaxConfig rightConfig;
-	private final ShuffleboardTab elevatorTab;
+    private final SparkMax leftMotor;
+    private final SparkMax rightMotor;
+    private final RelativeEncoder leftEncoder;
+    private final RelativeEncoder rightEncoder;
+    private final SparkClosedLoopController leftController;
+    private final SparkClosedLoopController rightController;
+    private final SparkMaxConfig leftConfig;
+    private final SparkMaxConfig rightConfig;
+    private final ShuffleboardTab elevatorTab;
 
-	// Track target position internally instead of reading from Shuffleboard
-	private double currentTargetPosition = 0.0;
-	// Track manual mode state internally
-	private boolean manualModeEnabled = false;
+    // Track target position internally instead of reading from Shuffleboard
+    private double currentTargetPosition = 0.0;
+    // Track manual mode state internally
+    private boolean manualModeEnabled = false;
 
-	public Elevator() {
-		// Initialize motors
-		leftMotor = new SparkMax(ElevatorConstants.ELEVATOR_LEFT_ID, MotorType.kBrushless);
-		rightMotor = new SparkMax(ElevatorConstants.ELEVATOR_RIGHT_ID, MotorType.kBrushless);
+    public Elevator() {
+        // Initialize motors
+        leftMotor = new SparkMax(ElevatorConstants.ELEVATOR_LEFT_ID, MotorType.kBrushless);
+        rightMotor = new SparkMax(ElevatorConstants.ELEVATOR_RIGHT_ID, MotorType.kBrushless);
 
-		// Configure motors
-		leftConfig = new SparkMaxConfig();
-		rightConfig = new SparkMaxConfig();
+        // Configure motors
+        leftConfig = new SparkMaxConfig();
+        rightConfig = new SparkMaxConfig();
 
-		configureMotor(leftMotor, leftConfig, ElevatorConstants.ELEVATOR_LEFT_INVERTED);
-		configureMotor(rightMotor, rightConfig, ElevatorConstants.ELEVATOR_RIGHT_INVERTED);
+        configureMotor(leftMotor, leftConfig, ElevatorConstants.ELEVATOR_LEFT_INVERTED);
+        configureMotor(rightMotor, rightConfig, ElevatorConstants.ELEVATOR_RIGHT_INVERTED);
 
-		// Get encoders and controllers
-		leftEncoder = leftMotor.getEncoder();
-		rightEncoder = rightMotor.getEncoder();
-		leftController = leftMotor.getClosedLoopController();
-		rightController = rightMotor.getClosedLoopController();
+        // Get encoders and controllers
+        leftEncoder = leftMotor.getEncoder();
+        rightEncoder = rightMotor.getEncoder();
+        leftController = leftMotor.getClosedLoopController();
+        rightController = rightMotor.getClosedLoopController();
 
-		// Initialize Shuffleboard tab and information displays
-		elevatorTab = Shuffleboard.getTab("Elevator");
-		
-		configureShuffleboard();
-	}
+        // Initialize Shuffleboard tab and information displays
+        elevatorTab = Shuffleboard.getTab("Elevator");
+        
+        configureShuffleboard();
+    }
 
-	private void configureMotor(SparkMax motor, SparkMaxConfig config, boolean isInverted) {
-		config.inverted(isInverted)
-			.idleMode(IdleMode.kBrake)
-			.smartCurrentLimit(ElevatorConstants.ELEVATOR_CURRENT_LIMIT);
+    private void configureMotor(SparkMax motor, SparkMaxConfig config, boolean isInverted) {
+        config.inverted(isInverted)
+            .idleMode(IdleMode.kBrake)
+            .smartCurrentLimit(ElevatorConstants.ELEVATOR_CURRENT_LIMIT);
 
-		// Configure encoder conversion factors
-		config.encoder.positionConversionFactor(ElevatorConstants.ELEVATOR_POSITION_CONVERSION)
-			.velocityConversionFactor(ElevatorConstants.ELEVATOR_VELOCITY_CONVERSION);
+        // Configure encoder conversion factors
+        config.encoder.positionConversionFactor(ElevatorConstants.ELEVATOR_POSITION_CONVERSION)
+            .velocityConversionFactor(ElevatorConstants.ELEVATOR_VELOCITY_CONVERSION);
 
-		// Configure closed-loop control
-		config.closedLoop.feedbackSensor(FeedbackSensor.kPrimaryEncoder)
-			.p(ElevatorConstants.ELEVATOR_kP)
-			.i(ElevatorConstants.ELEVATOR_kI)
-			.d(ElevatorConstants.ELEVATOR_kD)
-			.velocityFF(ElevatorConstants.ELEVATOR_kF)
-			.outputRange(-1, 1);
+        // Configure closed-loop control with PID values
+        config.closedLoop.feedbackSensor(FeedbackSensor.kPrimaryEncoder)
+            .p(ElevatorConstants.ELEVATOR_kP)
+            .i(ElevatorConstants.ELEVATOR_kI)
+            .d(ElevatorConstants.ELEVATOR_kD)
+            .velocityFF(ElevatorConstants.ELEVATOR_kF)
+            .outputRange(-1, 1);
 
-		// Apply configuration
-		motor.configure(config, ResetMode.kResetSafeParameters, PersistMode.kNoPersistParameters);
-	}
+        // Configure MAXMotion parameters for trajectory control
+        config.closedLoop.maxMotion
+            .maxVelocity(ElevatorConstants.ELEVATOR_MAX_VELOCITY)
+            .maxAcceleration(ElevatorConstants.ELEVATOR_MAX_ACCELERATION)
+            .allowedClosedLoopError(ElevatorConstants.ELEVATOR_ALLOWED_ERROR);
 
-	private void configureShuffleboard() {
-		// Status Layout - Boolean indicators
-		elevatorTab.addBoolean("At Target", this::isAtTargetPosition)
-			.withWidget(BuiltInWidgets.kBooleanBox)
-			.withSize(3, 2)
-			.withPosition(0,0);
-		
-		elevatorTab.addBoolean("Within Bounds", () -> !isElevatorOutOfBounds())
-			.withWidget(BuiltInWidgets.kBooleanBox)
-			.withSize(3, 2)
-			.withPosition(0,2);
-		
-		elevatorTab.addBoolean("Manual Mode", () -> manualModeEnabled)
-			.withWidget(BuiltInWidgets.kBooleanBox)
-			.withSize(3, 2)
-			.withPosition(0,4);
-		
-		// Position Layout - Height information
-		elevatorTab.addNumber("Current Height", this::getCurrentPosition)
-			.withWidget(BuiltInWidgets.kDial)
-			.withProperties(Map.of(
-				"Min", ElevatorConstants.ELEVATOR_MIN_POSITION,
-				"Max", ElevatorConstants.ELEVATOR_MAX_POSITION))
-			.withSize(3, 2)
-			.withPosition(3,0);
-		
-		elevatorTab.addNumber("Target Height", () -> currentTargetPosition)
-			.withSize(3, 2)
-			.withPosition(3,2);
-		
-		elevatorTab.addNumber("Position Error", () -> currentTargetPosition - getCurrentPosition())
-			.withSize(3, 2)
-			.withPosition(3, 4);
-		
-		elevatorTab.addNumber("Left Encoder", () -> leftEncoder.getPosition())
-			.withSize(3, 2)
-			.withPosition(0, 6);
-		
-		elevatorTab.addNumber("Right Encoder", () -> rightEncoder.getPosition())
-			.withSize(3, 2)
-			.withPosition(3, 6);
-			
-		// Left Motor Layout - Current and output information
-		elevatorTab.addNumber("Left Motor Current", leftMotor::getOutputCurrent)
-			.withWidget(BuiltInWidgets.kGraph)
-			.withSize(5, 4)
-			.withPosition(6, 0);
-		
-		elevatorTab.addNumber("Left Motor Output", leftMotor::getAppliedOutput)
-			.withWidget(BuiltInWidgets.kGraph)
-			.withSize(5, 4)
-			.withPosition(6, 4);
+        // Apply configuration
+        motor.configure(config, ResetMode.kResetSafeParameters, PersistMode.kNoPersistParameters);
+    }
 
-		// Right Motor Layout - Current and output information
-		elevatorTab.addNumber("Right Motor Current", rightMotor::getOutputCurrent)
-			.withWidget(BuiltInWidgets.kGraph)
-			.withSize(5, 4)
-			.withPosition(11, 0);
-		
-		elevatorTab.addNumber("Right Motor Output", rightMotor::getAppliedOutput)
-			.withWidget(BuiltInWidgets.kGraph)
-			.withSize(5, 4)
-			.withPosition(11, 4);
-			
-		// PID Layout - Control parameters
-		elevatorTab.addNumber("P Gain", () -> ElevatorConstants.ELEVATOR_kP)
-			.withSize(3, 2)
-			.withPosition(16, 0);
-			
-		elevatorTab.addNumber("I Gain", () -> ElevatorConstants.ELEVATOR_kI)
-			.withSize(3, 2)	
-			.withPosition(16, 2);
-		
-		elevatorTab.addNumber("D Gain", () -> ElevatorConstants.ELEVATOR_kD)
-			.withSize(3, 2)
-			.withPosition(16, 4);
-		
-		elevatorTab.addNumber("F Gain", () -> ElevatorConstants.ELEVATOR_kF)
-			.withSize(3, 2)
-			.withPosition(16, 6);
-	}
+    private void configureShuffleboard() {
+        // Status Layout - Boolean indicators
+        elevatorTab.addBoolean("At Target", this::isAtTargetPosition)
+            .withWidget(BuiltInWidgets.kBooleanBox)
+            .withSize(3, 2)
+            .withPosition(0,0);
+        
+        elevatorTab.addBoolean("Within Bounds", () -> !isElevatorOutOfBounds())
+            .withWidget(BuiltInWidgets.kBooleanBox)
+            .withSize(3, 2)
+            .withPosition(0,2);
+        
+        elevatorTab.addBoolean("Manual Mode", () -> manualModeEnabled)
+            .withWidget(BuiltInWidgets.kBooleanBox)
+            .withSize(3, 2)
+            .withPosition(0,4);
+        
+        // Position Layout - Height information
+        elevatorTab.addNumber("Current Height", this::getCurrentPosition)
+            .withWidget(BuiltInWidgets.kDial)
+            .withProperties(Map.of(
+                "Min", ElevatorConstants.ELEVATOR_MIN_POSITION,
+                "Max", ElevatorConstants.ELEVATOR_MAX_POSITION))
+            .withSize(3, 2)
+            .withPosition(3,0);
+        
+        elevatorTab.addNumber("Target Height", () -> currentTargetPosition)
+            .withSize(3, 2)
+            .withPosition(3,2);
+        
+        elevatorTab.addNumber("Position Error", () -> currentTargetPosition - getCurrentPosition())
+            .withSize(3, 2)
+            .withPosition(3, 4);
+        
+        elevatorTab.addNumber("Left Encoder", () -> leftEncoder.getPosition())
+            .withSize(3, 2)
+            .withPosition(0, 6);
+        
+        elevatorTab.addNumber("Right Encoder", () -> rightEncoder.getPosition())
+            .withSize(3, 2)
+            .withPosition(3, 6);
+            
+        // Left Motor Layout - Current and output information
+        elevatorTab.addNumber("Left Motor Current", leftMotor::getOutputCurrent)
+            .withWidget(BuiltInWidgets.kGraph)
+            .withSize(5, 4)
+            .withPosition(6, 0);
+        
+        elevatorTab.addNumber("Left Motor Output", leftMotor::getAppliedOutput)
+            .withWidget(BuiltInWidgets.kGraph)
+            .withSize(5, 4)
+            .withPosition(6, 4);
 
-	public void setPosition(double targetPosition) {
-		// Clamp target position within safe limits
-		targetPosition = Math.min(Math.max(targetPosition, ElevatorConstants.ELEVATOR_MIN_POSITION),
-			ElevatorConstants.ELEVATOR_MAX_POSITION);
-		
-		// Update internal target position tracking
-		currentTargetPosition = targetPosition;
+        // Right Motor Layout - Current and output information
+        elevatorTab.addNumber("Right Motor Current", rightMotor::getOutputCurrent)
+            .withWidget(BuiltInWidgets.kGraph)
+            .withSize(5, 4)
+            .withPosition(11, 0);
+        
+        elevatorTab.addNumber("Right Motor Output", rightMotor::getAppliedOutput)
+            .withWidget(BuiltInWidgets.kGraph)
+            .withSize(5, 4)
+            .withPosition(11, 4);
+            
+        // PID Layout - Control parameters
+        elevatorTab.addNumber("P Gain", () -> ElevatorConstants.ELEVATOR_kP)
+            .withSize(3, 2)
+            .withPosition(16, 0);
+            
+        elevatorTab.addNumber("I Gain", () -> ElevatorConstants.ELEVATOR_kI)
+            .withSize(3, 2)    
+            .withPosition(16, 2);
+        
+        elevatorTab.addNumber("D Gain", () -> ElevatorConstants.ELEVATOR_kD)
+            .withSize(3, 2)
+            .withPosition(16, 4);
+        
+        elevatorTab.addNumber("F Gain", () -> ElevatorConstants.ELEVATOR_kF)
+            .withSize(3, 2)
+            .withPosition(16, 6);
+    }
 
-		System.out.println("Setting elevator position to: " + targetPosition); // Debug print
+    public void setPosition(double targetPosition) {
+        // Clamp target position within safe limits
+        targetPosition = Math.min(Math.max(targetPosition, ElevatorConstants.ELEVATOR_MIN_POSITION),
+            ElevatorConstants.ELEVATOR_MAX_POSITION);
+        
+        // Update internal target position tracking
+        currentTargetPosition = targetPosition;
 
-		// Calculate dynamic feed forward based on gravity compensation
-		double ff = calculateFeedForward(targetPosition);
+        System.out.println("Setting elevator position to: " + targetPosition); // Debug print
 
-		// Create a ClosedLoopSlot object for slot 0
-    	ClosedLoopSlot slot = ClosedLoopSlot.kSlot0;
+        // Calculate dynamic feed forward based on gravity compensation
+        double ff = calculateFeedForward(targetPosition);
 
-		leftController.setReference(targetPosition, ControlType.kPosition, slot, ff);
-		rightController.setReference(targetPosition, ControlType.kPosition, slot, ff);
-	}
+        // Use MAXMotion for smoother position control
+        ClosedLoopSlot slot = ClosedLoopSlot.kSlot0;
 
-	public void resetEncoders() {
-		leftEncoder.setPosition(0);
-		rightEncoder.setPosition(0);
-	}
+        leftController.setReference(targetPosition, ControlType.kMAXMotionPositionControl, slot, ff);
+        rightController.setReference(targetPosition, ControlType.kMAXMotionPositionControl, slot, ff);
+    }
 
-	public void manualControl(double speed) {
-		// Apply deadband and limits
-		if (Math.abs(speed) < ElevatorConstants.ELEVATOR_MANUAL_CONTROL_DEADBAND) {
-			speed = 0;
-		}
-		speed = Math.min(Math.max(speed * ElevatorConstants.ELEVATOR_MANUAL_SPEED_LIMIT, -1), 1);
+    public void resetEncoders() {
+        leftEncoder.setPosition(0);
+        rightEncoder.setPosition(0);
+    }
 
-		// Safety checks
-		if (!isElevatorOutOfBounds() || 
-			(getCurrentPosition() <= ElevatorConstants.ELEVATOR_MIN_POSITION && speed > 0) ||
-			(getCurrentPosition() >= ElevatorConstants.ELEVATOR_MAX_POSITION && speed < 0)) {
-			leftMotor.set(speed);
-			rightMotor.set(speed);
-		} else {
-			stopElevator();
-		}
-	}
+    public void manualControl(double speed) {
+        // Apply deadband and limits
+        if (Math.abs(speed) < ElevatorConstants.ELEVATOR_MANUAL_CONTROL_DEADBAND) {
+            speed = 0;
+        }
+        speed = Math.min(Math.max(speed * ElevatorConstants.ELEVATOR_MANUAL_SPEED_LIMIT, -1), 1);
 
-	public void stopElevator() {
-		leftMotor.set(0);
-		rightMotor.set(0);
-	}
+        // Safety checks
+        if (!isElevatorOutOfBounds() || 
+            (getCurrentPosition() <= ElevatorConstants.ELEVATOR_MIN_POSITION && speed > 0) ||
+            (getCurrentPosition() >= ElevatorConstants.ELEVATOR_MAX_POSITION && speed < 0)) {
+            leftMotor.set(speed);
+            rightMotor.set(speed);
+        } else {
+            stopElevator();
+        }
+    }
 
-	private boolean isElevatorOutOfBounds() {
-		double currentPosition = getCurrentPosition();
-		return currentPosition < ElevatorConstants.ELEVATOR_MIN_POSITION || 
-			currentPosition > ElevatorConstants.ELEVATOR_MAX_POSITION;
-	}
+    public void stopElevator() {
+        leftMotor.set(0);
+        rightMotor.set(0);
+    }
 
-	public double getCurrentPosition() {
-		// Average both encoders to ensure synchronization
-		return (leftEncoder.getPosition() + rightEncoder.getPosition()) / 2.0;
-	}
+    private boolean isElevatorOutOfBounds() {
+        double currentPosition = getCurrentPosition();
+        return currentPosition < ElevatorConstants.ELEVATOR_MIN_POSITION || 
+            currentPosition > ElevatorConstants.ELEVATOR_MAX_POSITION;
+    }
 
-	public boolean isAtTargetPosition() {
-		double currentPosition = getCurrentPosition();
-		return Math.abs(currentTargetPosition - currentPosition) <= ElevatorConstants.ELEVATOR_ALLOWED_ERROR;
-	}
+    public double getCurrentPosition() {
+        // Average both encoders to ensure synchronization
+        return (leftEncoder.getPosition() + rightEncoder.getPosition()) / 2.0;
+    }
 
-	private double calculateFeedForward(double targetPosition) {
-		// Calculate feedforward based on the target position (e.g., gravity compensation)
-		return ElevatorConstants.ELEVATOR_kF * Math.sin(Math.toRadians(targetPosition));
-	}
+    public boolean isAtTargetPosition() {
+        double currentPosition = getCurrentPosition();
+        return Math.abs(currentTargetPosition - currentPosition) <= ElevatorConstants.ELEVATOR_ALLOWED_ERROR;
+    }
 
-	public void setManualMode(boolean enabled) {
-		manualModeEnabled = enabled;
-	}
-	
-	public boolean isInManualMode() {
-		return manualModeEnabled;
-	}
+    private double calculateFeedForward(double targetPosition) {
+        // Calculate feedforward based on the target position (e.g., gravity compensation)
+        return ElevatorConstants.ELEVATOR_kF * Math.sin(Math.toRadians(targetPosition));
+    }
 
-	@Override
-	public void periodic() {
-		// Safety checks
-		performSafetyChecks();
-	}
-	
-	// Performs all safety checks and takes appropriate actions
+    public void setManualMode(boolean enabled) {
+        manualModeEnabled = enabled;
+    }
+    
+    public boolean isInManualMode() {
+        return manualModeEnabled;
+    }
+
+    @Override
+    public void periodic() {
+        // Safety checks
+        performSafetyChecks();
+    }
+    
+    // Performs all safety checks and takes appropriate actions
     private void performSafetyChecks() {
         // Check for out-of-bounds conditions
         if (isElevatorOutOfBounds() && !manualModeEnabled) {

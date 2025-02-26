@@ -25,6 +25,9 @@ public final class Constants {
 		// Encoder Conversion Factors
 		public static final double ELEVATOR_POSITION_CONVERSION = 0.0291; // Inches per count
 		public static final double ELEVATOR_VELOCITY_CONVERSION = 0.000485; // Inches per second per count
+		
+		public static final double ELEVATOR_MAX_VELOCITY = 1000;
+		public static final double ELEVATOR_MAX_ACCELERATION = 500;
 
 		// PID Constants
 		public static final double ELEVATOR_kP = 1.0; // Proportional gain for the elevator's PID controller

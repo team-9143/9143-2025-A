@@ -124,22 +124,22 @@ public class RobotContainer {
 		operator_controller.povDown().onTrue(Commands.runOnce(() -> {
 			elevator.setManualMode(false);
 			elevator.setPosition(ElevatorConstants.PresetHeights.BASE);
-		}, elevator).until(elevator::isAtTargetPosition));
+		}, elevator));
 
 		operator_controller.povLeft().onTrue(Commands.runOnce(() -> {
 			elevator.setManualMode(false);
 			elevator.setPosition(ElevatorConstants.PresetHeights.CORAL_L2);
-		}, elevator).until(elevator::isAtTargetPosition));
+		}, elevator));
 
 		operator_controller.povRight().onTrue(Commands.runOnce(() -> {
 			elevator.setManualMode(false);
 			elevator.setPosition(ElevatorConstants.PresetHeights.CORAL_L3);
-		}, elevator).until(elevator::isAtTargetPosition));
+		}, elevator));
 
 		operator_controller.povUp().onTrue(Commands.runOnce(() -> {
 			elevator.setManualMode(false);
 			elevator.setPosition(ElevatorConstants.PresetHeights.CORAL_L4);
-		}, elevator).until(elevator::isAtTargetPosition));
+		}, elevator));
 
 		// Elevator encoder reset
 		operator_controller.leftBumper().onTrue(Commands.runOnce(() -> elevator.resetEncoders(), elevator).ignoringDisable(true));
