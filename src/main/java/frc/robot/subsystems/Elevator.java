@@ -33,10 +33,12 @@ public class Elevator extends SubsystemBase {
     private final SparkMaxConfig rightConfig;
     private final ShuffleboardTab elevatorTab;
 
-    // Track target position internally instead of reading from Shuffleboard
+    // Track target position internally
     private double currentTargetPosition = 0.0;
     // Track manual mode state internally
     private boolean manualModeEnabled = false;
+    // Track position control mode internally
+    private boolean positionControlEnabled = false;
 
     public Elevator() {
         // Initialize motors
@@ -55,6 +57,9 @@ public class Elevator extends SubsystemBase {
         rightEncoder = rightMotor.getEncoder();
         leftController = leftMotor.getClosedLoopController();
         rightController = rightMotor.getClosedLoopController();
+
+        // Reset encoders on initialization
+        resetEncoders();
 
         // Initialize Shuffleboard tab and information displays
         elevatorTab = Shuffleboard.getTab("Elevator");
@@ -106,6 +111,11 @@ public class Elevator extends SubsystemBase {
             .withSize(3, 2)
             .withPosition(0,4);
         
+        elevatorTab.addBoolean("Position Control", () -> positionControlEnabled)
+            .withWidget(BuiltInWidgets.kBooleanBox)
+            .withSize(3, 2)
+            .withPosition(0,6);
+        
         // Position Layout - Height information
         elevatorTab.addNumber("Current Height", this::getCurrentPosition)
             .withWidget(BuiltInWidgets.kDial)
@@ -123,11 +133,7 @@ public class Elevator extends SubsystemBase {
             .withSize(3, 2)
             .withPosition(3, 4);
         
-        elevatorTab.addNumber("Left Encoder", () -> leftEncoder.getPosition())
-            .withSize(3, 2)
-            .withPosition(0, 6);
-        
-        elevatorTab.addNumber("Right Encoder", () -> rightEncoder.getPosition())
+        elevatorTab.addNumber("Encoders", () -> leftEncoder.getPosition())
             .withSize(3, 2)
             .withPosition(3, 6);
             
@@ -178,17 +184,26 @@ public class Elevator extends SubsystemBase {
         
         // Update internal target position tracking
         currentTargetPosition = targetPosition;
+        // Enable position control mode
+        positionControlEnabled = true;
 
         System.out.println("Setting elevator position to: " + targetPosition); // Debug print
 
-        // Calculate dynamic feed forward based on gravity compensation
-        double ff = ElevatorConstants.ELEVATOR_kF;
+        // Initial send of position command
+        updatePositionControl();
+    }
 
-        // Use MAXMotion for smoother position control
-        ClosedLoopSlot slot = ClosedLoopSlot.kSlot0;
+    private void updatePositionControl() {
+        if (positionControlEnabled) {
+            // Use static feedforward value
+            double ff = ElevatorConstants.ELEVATOR_kF;
 
-        leftController.setReference(targetPosition, ControlType.kMAXMotionPositionControl, slot, ff);
-        rightController.setReference(targetPosition, ControlType.kMAXMotionPositionControl, slot, ff);
+            // Use MAXMotion for smoother position control
+            ClosedLoopSlot slot = ClosedLoopSlot.kSlot0;
+
+            leftController.setReference(currentTargetPosition, ControlType.kMAXMotionPositionControl, slot, ff);
+            rightController.setReference(currentTargetPosition, ControlType.kMAXMotionPositionControl, slot, ff);
+        }
     }
 
     public void resetEncoders() {
@@ -198,6 +213,9 @@ public class Elevator extends SubsystemBase {
     }
 
     public void manualControl(double speed) {
+        // Disable position control when in manual mode
+        positionControlEnabled = false;
+        
         // Apply deadband and limits
         if (Math.abs(speed) < ElevatorConstants.ELEVATOR_MANUAL_CONTROL_DEADBAND) {
             speed = 0;
@@ -205,8 +223,7 @@ public class Elevator extends SubsystemBase {
         
         speed = Math.min(Math.max(speed * ElevatorConstants.ELEVATOR_MANUAL_SPEED_LIMIT, -1), 1);
 
-        // Calculate feedforward term based on the current position
-        double currentPosition = getCurrentPosition();
+        // Use static feedforward value
         double ff = ElevatorConstants.ELEVATOR_kF;
 
         // Safety checks
@@ -218,8 +235,8 @@ public class Elevator extends SubsystemBase {
                 leftMotor.set(ff);
                 rightMotor.set(ff);
             } else {
-                leftMotor.set(speed);
-                rightMotor.set(speed);
+                leftMotor.set(speed + ff);
+                rightMotor.set(speed + ff);
             }
         } else {
             System.err.println("WARNING: Elevator out of bounds! Position: " + getCurrentPosition());
@@ -228,8 +245,10 @@ public class Elevator extends SubsystemBase {
     }
 
     public void stopElevator() {
-        leftMotor.set(0);
-        rightMotor.set(0);
+        if (!positionControlEnabled) {
+            leftMotor.set(0);
+            rightMotor.set(0);
+        }
     }
 
     private boolean isElevatorOutOfBounds() {
@@ -248,23 +267,16 @@ public class Elevator extends SubsystemBase {
         return Math.abs(currentTargetPosition - currentPosition) <= ElevatorConstants.ELEVATOR_ALLOWED_ERROR;
     }
 
-    private double calculateFeedForward(double targetPosition) {
-        // Calculate feedforward based on the target position (e.g., gravity compensation)
-        return ElevatorConstants.ELEVATOR_kF * Math.sin(Math.toRadians(targetPosition));
-    }
-
     public void setManualMode(boolean enabled) {
         manualModeEnabled = enabled;
+        // Disable position control when entering manual mode
+        if (enabled) {
+            positionControlEnabled = false;
+        }
     }
     
     public boolean isInManualMode() {
         return manualModeEnabled;
-    }
-
-    @Override
-    public void periodic() {
-        // Safety checks
-        performSafetyChecks();
     }
     
     // Performs all safety checks and takes appropriate actions
@@ -273,6 +285,7 @@ public class Elevator extends SubsystemBase {
         if (isElevatorOutOfBounds() && !manualModeEnabled) {
             System.err.println("WARNING: Elevator out of bounds! Position: " + getCurrentPosition());
             stopElevator();
+            positionControlEnabled = false;
         }
         
         // Check for encoder synchronization
@@ -282,5 +295,16 @@ public class Elevator extends SubsystemBase {
             System.err.println("Left encoder: " + leftEncoder.getPosition());
             System.err.println("Right encoder: " + rightEncoder.getPosition());
         }
+    }
+
+    @Override
+    public void periodic() {
+        // Continue executing position control if enabled
+        if (positionControlEnabled) {
+            updatePositionControl();
+        }
+        
+        // Safety checks
+        performSafetyChecks();
     }
 }

@@ -136,35 +136,37 @@ public class RobotContainer {
             elevator.setManualMode(false);
             elevator.setPosition(ElevatorConstants.PresetHeights.BASE.getHeight());
         }, elevator));
-
+    
         operator_controller.povLeft().onTrue(Commands.runOnce(() -> {
             elevator.setManualMode(false);
             elevator.setPosition(ElevatorConstants.PresetHeights.CORAL_L2.getHeight());
         }, elevator));
-
+    
         operator_controller.povRight().onTrue(Commands.runOnce(() -> {
             elevator.setManualMode(false);
             elevator.setPosition(ElevatorConstants.PresetHeights.CORAL_L3.getHeight());
         }, elevator));
-
+    
         operator_controller.povUp().onTrue(Commands.runOnce(() -> {
             elevator.setManualMode(false);
             elevator.setPosition(ElevatorConstants.PresetHeights.CORAL_L4.getHeight());
         }, elevator));
-
+    
         // Elevator encoder reset
         operator_controller.leftBumper().onTrue(Commands.runOnce(() -> elevator.resetEncoders(), elevator).ignoringDisable(true));
-
-        // Elevator manual control
+    
+        // Elevator manual control - modified to respect position control
         elevator.setDefaultCommand(Commands.run(() -> {
             double speed = -operator_controller.getLeftY();
             if (Math.abs(speed) > ElevatorConstants.ELEVATOR_MANUAL_CONTROL_DEADBAND) {
                 // Only set manual mode if stick is actually being moved
                 elevator.setManualMode(true);
                 elevator.manualControl(speed);
-            } else {
+            } else if (elevator.isInManualMode()) {
+                // Only stop if we're in manual mode
                 elevator.stopElevator();
             }
+            // If not in manual mode, position control will be handled by periodic()
         }, elevator));
     }
 
