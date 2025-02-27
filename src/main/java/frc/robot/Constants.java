@@ -31,13 +31,13 @@ public final class Constants {
 		public static final double ELEVATOR_MAX_ACCELERATION = 500; // Maximum acceleration for the elevator (in encoder units per second squared)
 
 		// PID Constants
-		public static final double ELEVATOR_kP = 1.0; // Proportional gain for the elevator's PID controller
+		public static final double ELEVATOR_kP = 10.0; // Proportional gain for the elevator's PID controller
 		public static final double ELEVATOR_kI = 0.0; // Integral gain for the elevator's PID controller
 		public static final double ELEVATOR_kD = 0.0; // Derivative gain for the elevator's PID controller
-		public static final double ELEVATOR_kF = 0.3; // Feedforward gain for gravity compensation
+		public static final double ELEVATOR_kF = 0.15; // Feedforward gain for gravity compensation
 
 		// Position Limits
-		public static final double ELEVATOR_MIN_POSITION = 0.0; // Minimum allowed position for the elevator (in inches)
+		public static final double ELEVATOR_MIN_POSITION = -0.25; // Minimum allowed position for the elevator (in inches)
 		public static final double ELEVATOR_MAX_POSITION = 52.0; // Maximum allowed position for the elevator (in inches)
 
 		// Allowed Error
@@ -45,14 +45,14 @@ public final class Constants {
 
 		// Manual Control Parameters
 		public static final double ELEVATOR_MANUAL_CONTROL_DEADBAND = 0.2; // Deadband for manual elevator control
-		public static final double ELEVATOR_MANUAL_SPEED_LIMIT = 0.5; // Speed limit for manual elevator control
+		public static final double ELEVATOR_MANUAL_SPEED_LIMIT = 0.25; // Speed limit for manual elevator control
 
 		// Preset Heights
 		public enum PresetHeights {
 			BASE(0.0),
 			CORAL_L2(12.0),
 			CORAL_L3(28.0),
-			CORAL_L4(52.0),
+			CORAL_L4(200),
 			ALGAE_L2(20.5),
 			ALGAE_L3(37.5),
 			ALGAE_NET(52.0);
@@ -87,10 +87,10 @@ public final class Constants {
 		public static final double CORAL_PIVOT_VELOCITY_CONVERSION = 360.0 / 2241.6; // Convert encoder RPS to degrees per second (based on encoder resolution)
 	
 		// PID Constants
-		public static final double CORAL_PIVOT_kP = 0.1; // Proportional gain for the pivot motor's PID controller
+		public static final double CORAL_PIVOT_kP = 0.05; // Proportional gain for the pivot motor's PID controller
 		public static final double CORAL_PIVOT_kI = 0.005; // Integral gain for the pivot motor's PID controller
 		public static final double CORAL_PIVOT_kD = 0.02; // Derivative gain for the pivot motor's PID controller
-		public static final double CORAL_PIVOT_kF = 0.2; // Feedforward gain for gravity compensation
+		public static final double CORAL_PIVOT_kF = 0.35; // Feedforward gain for gravity compensation
 		
 		// Time Constants
 		public static final double GAME_PIECE_DETECTION_DELAY = 0.5; // Delay in seconds after game piece detection before stopping intake

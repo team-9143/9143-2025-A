@@ -213,8 +213,8 @@ public class CorAl extends SubsystemBase {
     }
 
     public void resetPivotEncoder() {
-        pivotMotor.setPosition(getThroughBoreAngle());
-        System.out.println("Pivot encoder reset to Through Bore value: " + getThroughBoreAngle());
+        pivotMotor.setPosition(0);
+        System.out.println("Pivot encoder reset to 0");
     }
 
     public void setIntakeSpeed(double speed) {

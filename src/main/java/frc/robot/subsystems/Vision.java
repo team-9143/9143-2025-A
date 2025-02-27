@@ -18,14 +18,13 @@ public class Vision extends SubsystemBase {
     private boolean trackingEnabled = false;
     private boolean positionTrackingEnabled = true;
 
+    /*
     // Shuffleboard
     private final ShuffleboardTab visionTab = Shuffleboard.getTab("Vision");
     private final GenericEntry trackingEnabledWidget;
     private final GenericEntry bestTagIdWidget;
     private final GenericEntry bestTagDistanceWidget;
     private final GenericEntry bestTagHorizontalOffsetWidget;
-
-    // Additional Shuffleboard widgets for comprehensive vision data
     private final GenericEntry targetDetectedWidget;
     private final GenericEntry targetYawWidget;
     private final GenericEntry targetPitchWidget;
@@ -35,9 +34,11 @@ public class Vision extends SubsystemBase {
     private final GenericEntry targetErrorYWidget;
     private final GenericEntry targetErrorAngleWidget;
     private final GenericEntry limelightNameWidget;
+    */
 
     public Vision(Swerve swerve) {
         this.swerve = swerve;
+        /*
 
         // Status layout - general vision status information
         trackingEnabledWidget = visionTab.add("Tracking Enabled", false)
@@ -122,6 +123,7 @@ public class Vision extends SubsystemBase {
             .withSize(3, 2)
             .withPosition(12, 2)
             .getEntry();
+        */
 
         // Set all Limelights to AprilTag pipeline (Pipeline 0)
         for (String name : VisionConstants.LIMELIGHT_NAMES) {
@@ -293,8 +295,8 @@ public class Vision extends SubsystemBase {
         boolean hasTarget = target.isPresent();
 
         // Update status widgets
-        trackingEnabledWidget.setBoolean(trackingEnabled);
-        targetDetectedWidget.setBoolean(hasTarget);
+        // trackingEnabledWidget.setBoolean(trackingEnabled);
+        // targetDetectedWidget.setBoolean(hasTarget);
 
         if (hasTarget) {
             // Get the current target
@@ -308,6 +310,7 @@ public class Vision extends SubsystemBase {
             double distanceError = distance - targetVerticalOffset;
             double angleError = currentTarget.tx;
 
+            /*
             // Update target information widgets
             bestTagIdWidget.setDouble(currentTarget.id);
             bestTagDistanceWidget.setDouble(distance);
@@ -326,7 +329,9 @@ public class Vision extends SubsystemBase {
 
             // Update source information
             limelightNameWidget.setString(currentTarget.limelightName);
+            */
         } else {
+            /*
             // Reset values when no target is detected
             bestTagIdWidget.setDouble(-1);
             bestTagDistanceWidget.setDouble(0.0);
@@ -339,6 +344,7 @@ public class Vision extends SubsystemBase {
             targetErrorYWidget.setDouble(0.0);
             targetErrorAngleWidget.setDouble(0.0);
             limelightNameWidget.setString("none");
+            */
         }
 
         if (positionTrackingEnabled) {

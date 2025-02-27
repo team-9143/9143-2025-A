@@ -182,7 +182,7 @@ public class Elevator extends SubsystemBase {
         System.out.println("Setting elevator position to: " + targetPosition); // Debug print
 
         // Calculate dynamic feed forward based on gravity compensation
-        double ff = calculateFeedForward(targetPosition);
+        double ff = ElevatorConstants.ELEVATOR_kF;
 
         // Use MAXMotion for smoother position control
         ClosedLoopSlot slot = ClosedLoopSlot.kSlot0;
@@ -194,6 +194,7 @@ public class Elevator extends SubsystemBase {
     public void resetEncoders() {
         leftEncoder.setPosition(0);
         rightEncoder.setPosition(0);
+        System.out.println("Elevator encoders reset to 0");
     }
 
     public void manualControl(double speed) {
@@ -201,15 +202,27 @@ public class Elevator extends SubsystemBase {
         if (Math.abs(speed) < ElevatorConstants.ELEVATOR_MANUAL_CONTROL_DEADBAND) {
             speed = 0;
         }
+        
         speed = Math.min(Math.max(speed * ElevatorConstants.ELEVATOR_MANUAL_SPEED_LIMIT, -1), 1);
+
+        // Calculate feedforward term based on the current position
+        double currentPosition = getCurrentPosition();
+        double ff = ElevatorConstants.ELEVATOR_kF;
 
         // Safety checks
         if (!isElevatorOutOfBounds() || 
             (getCurrentPosition() <= ElevatorConstants.ELEVATOR_MIN_POSITION && speed > 0) ||
             (getCurrentPosition() >= ElevatorConstants.ELEVATOR_MAX_POSITION && speed < 0)) {
-            leftMotor.set(speed);
-            rightMotor.set(speed);
+
+            if (speed == 0) {
+                leftMotor.set(ff);
+                rightMotor.set(ff);
+            } else {
+                leftMotor.set(speed);
+                rightMotor.set(speed);
+            }
         } else {
+            System.err.println("WARNING: Elevator out of bounds! Position: " + getCurrentPosition());
             stopElevator();
         }
     }

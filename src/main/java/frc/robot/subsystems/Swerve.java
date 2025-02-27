@@ -230,7 +230,7 @@ public class Swerve extends TunerSwerveDrivetrain implements Subsystem {
 					// PID constants for translation
 					new PIDConstants(0.8, 0.005, 0.1),
 					// PID constants for rotation
-					new PIDConstants(0.45, 0.002, 0.1)
+					new PIDConstants(0.6, 0.005, 0.0)
 				),
 				config,
 				// Assume the path needs to be flipped for Red vs Blue, this is normally the case
@@ -263,22 +263,22 @@ public class Swerve extends TunerSwerveDrivetrain implements Subsystem {
 		swerveTab.addNumber("Speed (m/s)", () -> 
 			Math.hypot(getState().Speeds.vxMetersPerSecond, getState().Speeds.vyMetersPerSecond))
 			.withWidget(BuiltInWidgets.kGraph)
-			.withSize(2, 2)
+			.withSize(3, 2)
 			.withPosition(3, 0);
 			
 		swerveTab.addNumber("Vx (m/s)", () -> getState().Speeds.vxMetersPerSecond)
 			.withWidget(BuiltInWidgets.kTextView)
-			.withSize(2, 2)
+			.withSize(3, 2)
 			.withPosition(3, 2);
 			
 		swerveTab.addNumber("Vy (m/s)", () -> getState().Speeds.vyMetersPerSecond)
 			.withWidget(BuiltInWidgets.kTextView)
-			.withSize(2, 2)
+			.withSize(3, 2)
 			.withPosition(3, 4);
 			
 		swerveTab.addNumber("Omega (rad/s)", () -> getState().Speeds.omegaRadiansPerSecond)
 			.withWidget(BuiltInWidgets.kTextView)
-			.withSize(2, 2)
+			.withSize(3, 2)
 			.withPosition(3, 6);
 		
 		// Module States Layout - Add entries for each module
@@ -287,12 +287,12 @@ public class Swerve extends TunerSwerveDrivetrain implements Subsystem {
 			String moduleName = "Module " + (i + 1);
 			
 			swerveTab.addNumber(moduleName + " Angle", () -> getState().ModuleStates[moduleIndex].angle.getDegrees())
-				.withSize(2, 2)
-				.withPosition(5, i * 2);
+				.withSize(3, 2)
+				.withPosition(6, i * 2);
 				
 			swerveTab.addNumber(moduleName + " Speed", () -> getState().ModuleStates[moduleIndex].speedMetersPerSecond)
-				.withSize(2, 2)
-				.withPosition(7, i * 2);
+				.withSize(3, 2)
+				.withPosition(9, i * 2);
 		}
 	}
 

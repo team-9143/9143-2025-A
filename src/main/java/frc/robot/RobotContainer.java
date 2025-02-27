@@ -81,9 +81,9 @@ public class RobotContainer {
         swerve.setDefaultCommand(
             // Drivetrain will execute this command periodically
             swerve.applyRequest(() ->
-                drive.withVelocityX(driver_controller.getLeftY() * MaxSpeed * 0.5)
-                    .withVelocityY(driver_controller.getLeftX() * MaxSpeed * 0.5)
-                    .withRotationalRate(driver_controller.getRightX() * MaxAngularRate)
+                drive.withVelocityX(-driver_controller.getLeftY() * MaxSpeed * 0.25) // Drive forward with negative Y (forward)
+                    .withVelocityY(-driver_controller.getLeftX() * MaxSpeed * 0.25) // Drive left with negative X (left)
+                    .withRotationalRate(-driver_controller.getRightX() * MaxAngularRate)// Drive clockwise with X (right)
             )
         );
 
@@ -173,7 +173,8 @@ public class RobotContainer {
         operator_controller.rightTrigger().onTrue(
             Commands.sequence(
                 Commands.runOnce(coral::stopIntake, coral),
-                Commands.runOnce(() -> coral.setPivotAngle(CorAlConstants.PivotPresetAngles.RAISE.getAngle()), coral)                
+                Commands.runOnce(() -> coral.setPivotAngle(CorAlConstants.PivotPresetAngles.RAISE.getAngle()), coral),
+                Commands.waitUntil(coral::isAtTargetAngle)                
             )
         );
 
@@ -181,7 +182,8 @@ public class RobotContainer {
         operator_controller.a().onTrue(
             Commands.sequence(
                 Commands.runOnce(coral::stopIntake, coral),
-                Commands.runOnce(() -> coral.setPivotAngle(CorAlConstants.PivotPresetAngles.BASE.getAngle()), coral)
+                Commands.runOnce(() -> coral.setPivotAngle(CorAlConstants.PivotPresetAngles.BASE.getAngle()), coral),
+                Commands.waitUntil(coral::isAtTargetAngle)
             )
         );
 
