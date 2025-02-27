@@ -43,6 +43,9 @@ public class CorAl extends SubsystemBase {
     
     // Target angle tracking
     private double currentTargetAngle = 0;
+    
+    // Through bore offset for calibration
+    private double throughBoreOffset = 0;
 
     public CorAl() {
         // Initialize motors
@@ -72,6 +75,20 @@ public class CorAl extends SubsystemBase {
 
         // Initialize detection timer
         detectionTimer.reset();
+        
+        // Auto-zero the pivot motor and through bore encoder
+        zeroEncoders();
+    }
+
+    // Zeros both the motor encoder and through bore encoder
+    public void zeroEncoders() {
+        // Calculate the through bore offset to make current position zero
+        throughBoreOffset = getRawThroughBoreAngle();
+        
+        // Reset the motor encoder to match the through bore reading
+        pivotMotor.setPosition(0);
+        
+        System.out.println("Encoders zeroed: Through bore offset set to " + throughBoreOffset + ".");
     }
 
     private void configurePivotMotor(TalonFX motor) {
@@ -91,7 +108,7 @@ public class CorAl extends SubsystemBase {
         config.Slot0.kI = CorAlConstants.CORAL_PIVOT_kI;
         config.Slot0.kD = CorAlConstants.CORAL_PIVOT_kD;
         
-        // Use built-in gravity compensation - don't apply manual FF
+        // Use built-in gravity compensation
         config.Slot0.GravityType = com.ctre.phoenix6.signals.GravityTypeValue.Arm_Cosine;
         config.Slot0.kG = CorAlConstants.CORAL_PIVOT_kF;
 
@@ -119,22 +136,22 @@ public class CorAl extends SubsystemBase {
         coralTab.addBoolean("At Target", this::isAtTargetAngle)
             .withWidget(BuiltInWidgets.kBooleanBox)
             .withSize(3, 2)
-			.withPosition(0,0);
+            .withPosition(0,0);
             
         coralTab.addBoolean("Game Piece Detected", this::isGamePieceDetected)
             .withWidget(BuiltInWidgets.kBooleanBox)
             .withSize(3, 2)
-			.withPosition(0,2);
+            .withPosition(0,2);
             
         coralTab.addBoolean("Feedback Valid", this::isMotorFeedbackValid)
             .withWidget(BuiltInWidgets.kBooleanBox)
             .withSize(3, 2)
-			.withPosition(0,4);
+            .withPosition(0,4);
            
         coralTab.addBoolean("Through Bore Connected", this::isThroughBoreConnected)
             .withWidget(BuiltInWidgets.kBooleanBox)
             .withSize(3, 2)
-			.withPosition(0,6);
+            .withPosition(0,6);
             
         // Position & Sensor Layout - Angle and CANrange information
         coralTab.addNumber("Current Angle", this::getPivotAngle)
@@ -146,53 +163,73 @@ public class CorAl extends SubsystemBase {
 
         coralTab.addNumber("Target Angle", () -> currentTargetAngle)
             .withSize(3, 2)
-			.withPosition(3,2);
+            .withPosition(3,2);
         
         coralTab.addNumber("Angle Error", () -> currentTargetAngle - getPivotAngle())
             .withSize(3, 2)
-			.withPosition(3,4);
+            .withPosition(3,4);
 
         coralTab.addNumber("CANRange Distance", this::getCANRangeDistance)
             .withSize(3, 2)
-			.withPosition(3,6);
+            .withPosition(3,6);
             
         // Motor Layout - Current and output information
         coralTab.addNumber("Pivot Current", () -> pivotMotor.getSupplyCurrent().getValueAsDouble())
             .withWidget(BuiltInWidgets.kGraph)
             .withSize(5, 4)
-			.withPosition(6,0);
+            .withPosition(6,0);
 
         coralTab.addNumber("Pivot Output", () -> pivotMotor.getDutyCycle().getValueAsDouble())
             .withWidget(BuiltInWidgets.kGraph)
             .withSize(5, 4)
-			.withPosition(6,4);
+            .withPosition(6,4);
 
         coralTab.addNumber("Intake Current", () -> intakeMotor.getSupplyCurrent().getValueAsDouble())
             .withWidget(BuiltInWidgets.kGraph)
             .withSize(5, 4)
-			.withPosition(11,0);
+            .withPosition(11,0);
             
         coralTab.addNumber("Intake Output", () -> intakeMotor.getDutyCycle().getValueAsDouble())
             .withWidget(BuiltInWidgets.kGraph)
             .withSize(5, 4)
-			.withPosition(11,4);
+            .withPosition(11,4);
             
         // PID Layout - Control parameters
-		coralTab.addNumber("P Gain", () -> CorAlConstants.CORAL_PIVOT_kP)
-			.withSize(3, 2)
-			.withPosition(16, 0);
-			
+        coralTab.addNumber("P Gain", () -> CorAlConstants.CORAL_PIVOT_kP)
+            .withSize(3, 2)
+            .withPosition(16, 0);
+            
         coralTab.addNumber("I Gain", () -> CorAlConstants.CORAL_PIVOT_kI)
-			.withSize(3, 2)
-			.withPosition(16, 2);
-		
+            .withSize(3, 2)
+            .withPosition(16, 2);
+        
         coralTab.addNumber("D Gain", () -> CorAlConstants.CORAL_PIVOT_kD)
-			.withSize(3, 2)
-			.withPosition(16, 4);
-		
+            .withSize(3, 2)
+            .withPosition(16, 4);
+        
         coralTab.addNumber("F Gain", () -> CorAlConstants.CORAL_PIVOT_kF)
-			.withSize(3, 2)
-			.withPosition(16, 6);
+            .withSize(3, 2)
+            .withPosition(16, 6);
+            
+        // Add Through Bore info
+        coralTab.addNumber("Through Bore Angle", this::getThroughBoreAngle)
+            .withWidget(BuiltInWidgets.kDial)
+            .withProperties(Map.of("min", CorAlConstants.CORAL_PIVOT_MIN_ANGLE, 
+                "max", CorAlConstants.CORAL_PIVOT_MAX_ANGLE))
+            .withSize(3, 2)
+            .withPosition(19,0);
+            
+        coralTab.addNumber("Through Bore Raw", this::getRawThroughBoreAngle)
+            .withSize(3, 2)
+            .withPosition(19,2);
+            
+        coralTab.addNumber("Through Bore Offset", () -> throughBoreOffset)
+            .withSize(3, 2)
+            .withPosition(19,4);
+            
+        coralTab.addNumber("Motor Encoder", () -> pivotMotor.getPosition().getValueAsDouble())
+            .withSize(3, 2)
+            .withPosition(19,6);
     }
 
     public void setPivotAngle(double targetAngle) {
@@ -201,20 +238,26 @@ public class CorAl extends SubsystemBase {
                              CorAlConstants.CORAL_PIVOT_MAX_ANGLE);
         currentTargetAngle = targetAngle;
 
-        // Check if the feedback is valid before setting the position
-        if (isMotorFeedbackValid()) {
-            // Let Phoenix 6 handle gravity compensation through the configured slot
-            pivotMotor.setControl(positionRequest.withPosition(targetAngle));
+        // Check if the through bore is connected before setting the position
+        if (isThroughBoreConnected()) {
+            // Set position based on the through bore reading
+            // Need to convert the target angle to motor position units
+            double currentThroughBoreAngle = getThroughBoreAngle();
+            double currentMotorPosition = pivotMotor.getPosition().getValueAsDouble();
+            double positionError = targetAngle - currentThroughBoreAngle;
+            
+            // Update motor position setpoint based on the through bore reading
+            pivotMotor.setControl(positionRequest.withPosition(currentMotorPosition + positionError));
         } else {
-            // If motor feedback is invalid, stop the pivot for safety
-            stopPivot();
-            System.err.println("WARNING: Cannot set position - motor feedback invalid!");
+            // If through bore is unavailable, use motor encoder as fallback
+            pivotMotor.setControl(positionRequest.withPosition(targetAngle));
+            System.out.println("WARNING: Using motor encoder as fallback; through bore disconnected.");
         }
     }
 
     public void resetPivotEncoder() {
-        pivotMotor.setPosition(0);
-        System.out.println("Pivot encoder reset to 0");
+        zeroEncoders();
+        System.out.println("Pivot encoder reset.");
     }
 
     public void setIntakeSpeed(double speed) {
@@ -241,18 +284,30 @@ public class CorAl extends SubsystemBase {
         pivotMotor.setControl(percentRequest.withOutput(0));
     }
 
+    // Get the raw angle reading from the through bore encoder without offset
+    public double getRawThroughBoreAngle() {
+        double dutyCycle = throughBore.getOutput();
+        return dutyCycle * (CorAlConstants.THROUGH_BORE_MAX_ANGLE - CorAlConstants.THROUGH_BORE_MIN_ANGLE) 
+               + CorAlConstants.THROUGH_BORE_MIN_ANGLE;
+    }
+    
+    // Get the calibrated angle from the through bore encoder with offset applied
+    public double getThroughBoreAngle() {
+        if (!isThroughBoreConnected()) {
+            // Fall back to motor position if through bore is disconnected
+            return pivotMotor.getPosition().getValueAsDouble();
+        }
+        return getRawThroughBoreAngle() - throughBoreOffset;
+    }
+
+    // Get the pivot angle - returns the through bore angle as the primary source
     public double getPivotAngle() {
-        return pivotMotor.getPosition().getValueAsDouble();
+        // Use through bore as primary angle source
+        return getThroughBoreAngle();
     }
 
     public boolean isAtTargetAngle() {
         return Math.abs(getPivotAngle() - currentTargetAngle) <= CorAlConstants.CORAL_PIVOT_ALLOWED_ERROR;
-    }
-
-    public double getThroughBoreAngle() {
-        double dutyCycle = throughBore.getOutput();
-        return dutyCycle * (CorAlConstants.THROUGH_BORE_MAX_ANGLE - CorAlConstants.THROUGH_BORE_MIN_ANGLE) 
-               + CorAlConstants.THROUGH_BORE_MIN_ANGLE;
     }
 
     public boolean isMotorFeedbackValid() {
@@ -260,9 +315,9 @@ public class CorAl extends SubsystemBase {
             return true; // Assume valid if the Through Bore Encoder is disconnected
         }
 
-        double krakenAngle = getPivotAngle();
+        double motorAngle = pivotMotor.getPosition().getValueAsDouble();
         double throughBoreAngle = getThroughBoreAngle();
-        double discrepancy = Math.abs(krakenAngle - throughBoreAngle);
+        double discrepancy = Math.abs(motorAngle - throughBoreAngle);
 
         return discrepancy <= CorAlConstants.THROUGH_BORE_ALLOWED_DISCREPANCY;
     }
@@ -310,11 +365,14 @@ public class CorAl extends SubsystemBase {
     // Performs all safety checks and takes appropriate actions
     private void performSafetyChecks() {
         // Check for motor feedback validity
-        if (!isMotorFeedbackValid()) {
+        if (!isMotorFeedbackValid() && isThroughBoreConnected()) {
             System.err.println("WARNING: Motor feedback discrepancy detected!");
-            System.err.println("Kraken X60 Angle: " + getPivotAngle());
+            System.err.println("Motor Encoder Angle: " + pivotMotor.getPosition().getValueAsDouble());
             System.err.println("Through Bore Encoder Angle: " + getThroughBoreAngle());
-            stopPivot(); // Stop the mechanism to prevent damage
+            
+            // Sync motor encoder to through bore reading to prevent further drift
+            pivotMotor.setPosition(getThroughBoreAngle());
+            System.out.println("Motor encoder synced to through bore reading");
         }
 
         // Check for out-of-bounds conditions
