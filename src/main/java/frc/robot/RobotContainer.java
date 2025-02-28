@@ -171,7 +171,16 @@ public class RobotContainer {
     }
 
     private void configureCorAlBindings() {
-        // CorAl lifting
+        // CorAl retraction (base angle, no roller speed)
+        operator_controller.leftTrigger().onTrue(
+            Commands.sequence(
+                Commands.runOnce(coral::stopIntake, coral),
+                Commands.runOnce(() -> coral.setPivotAngle(CorAlConstants.PivotPresetAngles.BASE.getAngle()), coral),
+                Commands.waitUntil(coral::isAtTargetAngle)
+            )
+        );
+
+        // CorAl lifting (raise angle, no roller speed)
         operator_controller.rightTrigger().onTrue(
             Commands.sequence(
                 Commands.runOnce(coral::stopIntake, coral),
@@ -180,44 +189,57 @@ public class RobotContainer {
             )
         );
 
-        // CorAl retraction
+        // Coral intake (base angle and coral intake on rollers until the canrange detects a game piece plus delay)
         operator_controller.a().onTrue(
             Commands.sequence(
-                Commands.runOnce(coral::stopIntake, coral),
                 Commands.runOnce(() -> coral.setPivotAngle(CorAlConstants.PivotPresetAngles.BASE.getAngle()), coral),
-                Commands.waitUntil(coral::isAtTargetAngle)
+                Commands.waitUntil(coral::isAtTargetAngle),
+                Commands.runOnce(() -> coral.setIntakeSpeed(CorAlConstants.CORAL_INTAKE_SPEED), coral),
+                Commands.waitUntil(() -> coral.isGamePieceDetected())
             )
         );
 
-        // Coral scoring
+        // Coral score (base angle and coral intake on rollers until canrange detects no game piece plus delay)
         operator_controller.x().onTrue(
             Commands.sequence(
                 Commands.runOnce(() -> coral.setPivotAngle(CorAlConstants.PivotPresetAngles.BASE.getAngle()), coral),
                 Commands.waitUntil(coral::isAtTargetAngle),
-                Commands.runOnce(() -> coral.startRollersWithTimer(CorAlConstants.CORAL_INTAKE_SPEED, CorAlConstants.ROLLER_RUN_TIME), coral)
+                Commands.runOnce(() -> coral.setIntakeSpeed(CorAlConstants.CORAL_INTAKE_SPEED), coral),
+                Commands.waitUntil(() -> !coral.isGamePieceDetected()),
+                Commands.waitSeconds(0.5),
+                Commands.runOnce(coral::stopIntake, coral)
             )
         );
 
-        // Algae intaking
+        // Algae intake (algae intake angle and algae intake on rollers)
         operator_controller.b().onTrue(
             Commands.sequence(
                 Commands.runOnce(() -> coral.setPivotAngle(CorAlConstants.PivotPresetAngles.ALGAE_INTAKE.getAngle()), coral),
                 Commands.waitUntil(coral::isAtTargetAngle),
-                Commands.runOnce(() -> coral.startRollersWithTimer(CorAlConstants.ALGAE_INTAKE_SPEED, CorAlConstants.ROLLER_RUN_TIME), coral)
+                Commands.runOnce(() -> coral.setIntakeSpeed(CorAlConstants.ALGAE_INTAKE_SPEED), coral)
             )
         );
 
-        // Algae scoring
+        // Algae hold (raise angle and no roller speed)
         operator_controller.y().onTrue(
+            Commands.sequence(
+                Commands.runOnce(coral::stopIntake, coral),
+                Commands.runOnce(() -> coral.setPivotAngle(CorAlConstants.PivotPresetAngles.RAISE.getAngle()), coral),
+                Commands.waitUntil(coral::isAtTargetAngle)
+            )
+        );
+
+        // Algae score (algae score angle and coral intake speed)
+        operator_controller.rightBumper().onTrue(
             Commands.sequence(
                 Commands.runOnce(() -> coral.setPivotAngle(CorAlConstants.PivotPresetAngles.ALGAE_SCORE.getAngle()), coral),
                 Commands.waitUntil(coral::isAtTargetAngle),
-                Commands.runOnce(() -> coral.startRollersWithTimer(CorAlConstants.CORAL_INTAKE_SPEED, CorAlConstants.ROLLER_RUN_TIME), coral)
+                Commands.runOnce(() -> coral.setIntakeSpeed(CorAlConstants.CORAL_INTAKE_SPEED), coral)
             )
         );
 
         // Pivot encoder reset
-        operator_controller.rightBumper().onTrue(Commands.runOnce(() -> coral.resetPivotEncoder(), coral).ignoringDisable(true));
+        operator_controller.start().onTrue(Commands.runOnce(() -> coral.resetPivotEncoder(), coral).ignoringDisable(true));
 
         // Pivot manual control
         coral.setDefaultCommand(Commands.run(() -> {

@@ -3,7 +3,6 @@ package frc.robot.subsystems;
 import java.util.Optional;
 
 import edu.wpi.first.math.geometry.Pose2d;
-import edu.wpi.first.networktables.GenericEntry;
 import edu.wpi.first.wpilibj.shuffleboard.BuiltInWidgets;
 import edu.wpi.first.wpilibj.shuffleboard.Shuffleboard;
 import edu.wpi.first.wpilibj.shuffleboard.ShuffleboardTab;
@@ -17,118 +16,111 @@ public class Vision extends SubsystemBase {
 
     private boolean trackingEnabled = false;
     private boolean positionTrackingEnabled = true;
-
-    /*
+    
     // Shuffleboard
-    private final ShuffleboardTab visionTab = Shuffleboard.getTab("Vision");
-    private final GenericEntry trackingEnabledWidget;
-    private final GenericEntry bestTagIdWidget;
-    private final GenericEntry bestTagDistanceWidget;
-    private final GenericEntry bestTagHorizontalOffsetWidget;
-    private final GenericEntry targetDetectedWidget;
-    private final GenericEntry targetYawWidget;
-    private final GenericEntry targetPitchWidget;
-    private final GenericEntry targetPoseXWidget;
-    private final GenericEntry targetPoseYWidget;
-    private final GenericEntry targetErrorXWidget;
-    private final GenericEntry targetErrorYWidget;
-    private final GenericEntry targetErrorAngleWidget;
-    private final GenericEntry limelightNameWidget;
-    */
+    private final ShuffleboardTab visionTab;
 
     public Vision(Swerve swerve) {
         this.swerve = swerve;
-        /*
-
-        // Status layout - general vision status information
-        trackingEnabledWidget = visionTab.add("Tracking Enabled", false)
-            .withWidget(BuiltInWidgets.kBooleanBox)
-            .withSize(3, 2)
-            .withPosition(0, 0)
-            .getEntry();
-
-        targetDetectedWidget = visionTab.add("Target Detected", false)
-            .withWidget(BuiltInWidgets.kBooleanBox)
-            .withSize(3, 2)
-            .withPosition(0, 2)
-            .getEntry();
-
-        // Target information layout - main data about the detected target
-        bestTagIdWidget = visionTab.add("Best Tag ID", -1)
-            .withWidget(BuiltInWidgets.kTextView)
-            .withSize(3, 2)
-            .withPosition(3, 0)
-            .getEntry();
-
-        bestTagDistanceWidget = visionTab.add("Best Tag Distance", 0.0)
-            .withWidget(BuiltInWidgets.kDial)
-            .withSize(3, 2)
-            .withPosition(3, 2)
-            .getEntry();
-
-        // Target position and orientation layout - detailed positioning data
-        targetYawWidget = visionTab.add("Target Yaw (tx)", 0.0)
-            .withWidget(BuiltInWidgets.kTextView)
-            .withSize(3, 2)
-            .withPosition(6, 0)
-            .getEntry();
-
-        targetPitchWidget = visionTab.add("Target Pitch (ty)", 0.0)
-            .withWidget(BuiltInWidgets.kTextView)
-            .withSize(3, 2)
-            .withPosition(6, 2)
-            .getEntry();
-
-        targetPoseXWidget = visionTab.add("Target Pose X", 0.0)
-            .withWidget(BuiltInWidgets.kTextView)
-            .withSize(3, 2)
-            .withPosition(9, 0)
-            .getEntry();
-
-        targetPoseYWidget = visionTab.add("Target Pose Y", 0.0)
-            .withWidget(BuiltInWidgets.kTextView)
-            .withSize(3, 2)
-            .withPosition(9, 2)
-            .getEntry();
-
-        // Offsets and errors layout - tracking performance metrics
-        bestTagHorizontalOffsetWidget = visionTab.add("Target Horizontal Offset", 0.0)
-            .withWidget(BuiltInWidgets.kTextView)
-            .withSize(3, 2)
-            .withPosition(12, 0)
-            .getEntry();
-
-        // Error tracking for PID feedback visualization
-        targetErrorXWidget = visionTab.add("Distance Error", 0.0)
-            .withWidget(BuiltInWidgets.kGraph)
-            .withSize(5, 2)
-            .withPosition(0, 4)
-            .getEntry();
-
-        targetErrorYWidget = visionTab.add("Horizontal Error", 0.0)
-            .withWidget(BuiltInWidgets.kGraph)
-            .withSize(5, 2)
-            .withPosition(5, 4)
-            .getEntry();
-
-        targetErrorAngleWidget = visionTab.add("Angle Error", 0.0)
-            .withWidget(BuiltInWidgets.kGraph)
-            .withSize(5, 2)
-            .withPosition(10, 4)
-            .getEntry();
-
-        // Source information
-        limelightNameWidget = visionTab.add("Limelight Source", "none")
-            .withWidget(BuiltInWidgets.kTextView)
-            .withSize(3, 2)
-            .withPosition(12, 2)
-            .getEntry();
-        */
+        
+        // Initialize Shuffleboard tab
+        visionTab = Shuffleboard.getTab("Vision");
+        
+        // Configure Shuffleboard
+        configureShuffleboard();
 
         // Set all Limelights to AprilTag pipeline (Pipeline 0)
         for (String name : VisionConstants.LIMELIGHT_NAMES) {
             LimelightHelpers.setPipelineIndex("limelight-" + name, 0);
         }
+    }
+    
+    private void configureShuffleboard() {
+        // Status layout - general vision status information
+        visionTab.addBoolean("Tracking Enabled", this::isTrackingEnabled)
+            .withWidget(BuiltInWidgets.kBooleanBox)
+            .withSize(3, 2)
+            .withPosition(0, 0);
+
+        visionTab.addBoolean("Target Detected", () -> getBestTarget().isPresent())
+            .withWidget(BuiltInWidgets.kBooleanBox)
+            .withSize(3, 2)
+            .withPosition(0, 2);
+
+        // Target information layout - main data about the detected target
+        visionTab.addNumber("Best Tag ID", () -> getBestTarget().map(target -> (double)target.id).orElse(-1.0))
+            .withWidget(BuiltInWidgets.kTextView)
+            .withSize(3, 2)
+            .withPosition(3, 0);
+
+        visionTab.addNumber("Best Tag Distance", () -> {
+                return getBestTarget().map(target -> Math.hypot(target.poseX, target.poseY)).orElse(0.0);
+            })
+            .withWidget(BuiltInWidgets.kDial)
+            .withSize(3, 2)
+            .withPosition(3, 2);
+
+        // Target position and orientation layout - detailed positioning data
+        visionTab.addNumber("Target Yaw (tx)", () -> getBestTarget().map(target -> target.tx).orElse(0.0))
+            .withWidget(BuiltInWidgets.kTextView)
+            .withSize(3, 2)
+            .withPosition(6, 0);
+
+        visionTab.addNumber("Target Pitch (ty)", () -> getBestTarget().map(target -> target.ty).orElse(0.0))
+            .withWidget(BuiltInWidgets.kTextView)
+            .withSize(3, 2)
+            .withPosition(6, 2);
+
+        visionTab.addNumber("Target Pose X", () -> getBestTarget().map(target -> target.poseX).orElse(0.0))
+            .withWidget(BuiltInWidgets.kTextView)
+            .withSize(3, 2)
+            .withPosition(9, 0);
+
+        visionTab.addNumber("Target Pose Y", () -> getBestTarget().map(target -> target.poseY).orElse(0.0))
+            .withWidget(BuiltInWidgets.kTextView)
+            .withSize(3, 2)
+            .withPosition(9, 2);
+
+        // Offsets and errors layout - tracking performance metrics
+        visionTab.addNumber("Target Horizontal Offset", () -> {
+                return getBestTarget().map(target -> getTargetHorizontalOffset(target.id)).orElse(0.0);
+            })
+            .withWidget(BuiltInWidgets.kTextView)
+            .withSize(3, 2)
+            .withPosition(12, 0);
+
+        // Error tracking for PID feedback visualization
+        visionTab.addNumber("Distance Error", () -> {
+                return getBestTarget().map(target -> {
+                    double distance = Math.hypot(target.poseX, target.poseY);
+                    double targetVerticalOffset = getTargetVerticalOffset(target.id);
+                    return distance - targetVerticalOffset;
+                }).orElse(0.0);
+            })
+            .withWidget(BuiltInWidgets.kGraph)
+            .withSize(5, 2)
+            .withPosition(0, 4);
+
+        visionTab.addNumber("Horizontal Error", () -> {
+                return getBestTarget().map(target -> {
+                    double targetHorizontalOffset = getTargetHorizontalOffset(target.id);
+                    return target.poseY - targetHorizontalOffset;
+                }).orElse(0.0);
+            })
+            .withWidget(BuiltInWidgets.kGraph)
+            .withSize(5, 2)
+            .withPosition(5, 4);
+
+        visionTab.addNumber("Angle Error", () -> getBestTarget().map(target -> target.tx).orElse(0.0))
+            .withWidget(BuiltInWidgets.kGraph)
+            .withSize(5, 2)
+            .withPosition(10, 4);
+
+        // Source information
+        visionTab.addString("Limelight Source", () -> getBestTarget().map(target -> target.limelightName).orElse("none"))
+            .withWidget(BuiltInWidgets.kTextView)
+            .withSize(3, 2)
+            .withPosition(12, 2);
     }
 
     // Toggles AprilTag tracking and controls Limelight LEDs.
@@ -240,7 +232,7 @@ public class Vision extends SubsystemBase {
         }
     }
 
-	private void updateRobotPosition() {
+    private void updateRobotPosition() {
         // Find the Limelight with the most visible tags for best position estimate
         String bestLimelight = null;
         int maxTagCount = 0;
@@ -290,63 +282,8 @@ public class Vision extends SubsystemBase {
 
     @Override
     public void periodic() {
-        // Update Shuffleboard with latest vision data
-        Optional<AprilTagTarget> target = getBestTarget();
-        boolean hasTarget = target.isPresent();
-
-        // Update status widgets
-        // trackingEnabledWidget.setBoolean(trackingEnabled);
-        // targetDetectedWidget.setBoolean(hasTarget);
-
-        if (hasTarget) {
-            // Get the current target
-            AprilTagTarget currentTarget = target.get();
-
-            // Calculate distance and errors
-            double distance = Math.hypot(currentTarget.poseX, currentTarget.poseY);
-            double targetHorizontalOffset = getTargetHorizontalOffset(currentTarget.id);
-            double targetVerticalOffset = getTargetVerticalOffset(currentTarget.id);
-            double horizontalError = currentTarget.poseY - targetHorizontalOffset;
-            double distanceError = distance - targetVerticalOffset;
-            double angleError = currentTarget.tx;
-
-            /*
-            // Update target information widgets
-            bestTagIdWidget.setDouble(currentTarget.id);
-            bestTagDistanceWidget.setDouble(distance);
-            bestTagHorizontalOffsetWidget.setDouble(targetHorizontalOffset);
-
-            // Update position and orientation widgets
-            targetYawWidget.setDouble(currentTarget.tx);
-            targetPitchWidget.setDouble(currentTarget.ty);
-            targetPoseXWidget.setDouble(currentTarget.poseX);
-            targetPoseYWidget.setDouble(currentTarget.poseY);
-
-            // Update error metrics
-            targetErrorXWidget.setDouble(distanceError);
-            targetErrorYWidget.setDouble(horizontalError);
-            targetErrorAngleWidget.setDouble(angleError);
-
-            // Update source information
-            limelightNameWidget.setString(currentTarget.limelightName);
-            */
-        } else {
-            /*
-            // Reset values when no target is detected
-            bestTagIdWidget.setDouble(-1);
-            bestTagDistanceWidget.setDouble(0.0);
-            bestTagHorizontalOffsetWidget.setDouble(0.0);
-            targetYawWidget.setDouble(0.0);
-            targetPitchWidget.setDouble(0.0);
-            targetPoseXWidget.setDouble(0.0);
-            targetPoseYWidget.setDouble(0.0);
-            targetErrorXWidget.setDouble(0.0);
-            targetErrorYWidget.setDouble(0.0);
-            targetErrorAngleWidget.setDouble(0.0);
-            limelightNameWidget.setString("none");
-            */
-        }
-
+        // No need to update widgets here as they're now supplier-based
+        
         if (positionTrackingEnabled) {
             updateRobotPosition();
         }
