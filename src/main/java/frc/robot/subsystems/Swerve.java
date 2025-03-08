@@ -420,6 +420,11 @@ public class Swerve extends TunerSwerveDrivetrain implements Subsystem {
 						.withVelocityX(vx) // Forward/backward movement
 						.withVelocityY(vy) // Left/right movement
 						.withRotationalRate(omega)); // Rotation to align with the tag
+
+					System.out.println("Debug Tracking: Distance Error = " + distanceError 
+						+ " | Horizontal Error = " + horizontalError 
+						+ " | Angle Error = " + angleError
+						+ " | vx = " + vx + " | vy = " + vy + " | omega = " + omega);
 				}
 			}
 		});

@@ -5,9 +5,9 @@ import java.util.Optional;
 import edu.wpi.first.math.geometry.Pose2d;
 import edu.wpi.first.wpilibj.shuffleboard.BuiltInWidgets;
 import edu.wpi.first.wpilibj.shuffleboard.Shuffleboard;
+import edu.wpi.first.wpilibj.shuffleboard.ShuffleboardComponent;
 import edu.wpi.first.wpilibj.shuffleboard.ShuffleboardTab;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
-
 import frc.robot.LimelightHelpers;
 import frc.robot.Constants.VisionConstants;
 
@@ -19,6 +19,7 @@ public class Vision extends SubsystemBase {
     
     // Shuffleboard
     private final ShuffleboardTab visionTab;
+    private boolean shuffleboardConfigured = false; // Guard flag
 
     public Vision(Swerve swerve) {
         this.swerve = swerve;
@@ -33,94 +34,151 @@ public class Vision extends SubsystemBase {
         for (String name : VisionConstants.LIMELIGHT_NAMES) {
             LimelightHelpers.setPipelineIndex("limelight-" + name, 0);
         }
+
+        // Turn off Limelight LEDs during initialization
+        for (String name : VisionConstants.LIMELIGHT_NAMES) {
+            LimelightHelpers.setLEDMode_ForceOff("limelight-" + name);
+        }
     }
     
     private void configureShuffleboard() {
-        // Status layout - general vision status information
-        visionTab.addBoolean("Tracking Enabled", this::isTrackingEnabled)
-            .withWidget(BuiltInWidgets.kBooleanBox)
-            .withSize(3, 2)
-            .withPosition(0, 0);
+        if (shuffleboardConfigured) {
+            return;
+        }
+        shuffleboardConfigured = true;
 
-        visionTab.addBoolean("Target Detected", () -> getBestTarget().isPresent())
-            .withWidget(BuiltInWidgets.kBooleanBox)
-            .withSize(3, 2)
-            .withPosition(0, 2);
+        // Instead of clearing the tab (which may not be allowed),
+        // check for the existence of a widget before adding it.
+        if (widgetNotPresent("AprilTag Tracking Enabled")) {
+            visionTab.addBoolean("AprilTag Tracking Enabled", this::isTrackingEnabled)
+                .withWidget(BuiltInWidgets.kBooleanBox)
+                .withSize(3, 2)
+                .withPosition(0, 0);
+        }
 
-        // Target information layout - main data about the detected target
-        visionTab.addNumber("Best Tag ID", () -> getBestTarget().map(target -> (double)target.id).orElse(-1.0))
-            .withWidget(BuiltInWidgets.kTextView)
-            .withSize(3, 2)
-            .withPosition(3, 0);
+        if (widgetNotPresent("Position Tracking Enabled")) {
+            visionTab.addBoolean("Position Tracking Enabled", this::isPositionTrackingEnabled)
+                .withWidget(BuiltInWidgets.kBooleanBox)
+                .withSize(3, 2)
+                .withPosition(0, 2);
+        }
 
-        visionTab.addNumber("Best Tag Distance", () -> {
-                return getBestTarget().map(target -> Math.hypot(target.poseX, target.poseY)).orElse(0.0);
-            })
-            .withWidget(BuiltInWidgets.kDial)
-            .withSize(3, 2)
-            .withPosition(3, 2);
+        if (widgetNotPresent("Best Tag ID")) {
+            visionTab.addNumber("Best Tag ID", () -> 
+                getBestTarget().map(target -> (double) target.id).orElse(-1.0))
+                .withWidget(BuiltInWidgets.kTextView)
+                .withSize(3, 2)
+                .withPosition(3, 0);
+        }
 
-        // Target position and orientation layout - detailed positioning data
-        visionTab.addNumber("Target Yaw (tx)", () -> getBestTarget().map(target -> target.tx).orElse(0.0))
-            .withWidget(BuiltInWidgets.kTextView)
-            .withSize(3, 2)
-            .withPosition(6, 0);
+        if (widgetNotPresent("Limelight Source")) {
+            visionTab.addString("Limelight Source", () -> 
+                getBestTarget().map(target -> target.limelightName).orElse("none"))
+                .withWidget(BuiltInWidgets.kTextView)
+                .withSize(3, 2)
+                .withPosition(3, 2);
+        }
 
-        visionTab.addNumber("Target Pitch (ty)", () -> getBestTarget().map(target -> target.ty).orElse(0.0))
-            .withWidget(BuiltInWidgets.kTextView)
-            .withSize(3, 2)
-            .withPosition(6, 2);
+        if (widgetNotPresent("Target Yaw (tx)")) {
+            visionTab.addNumber("Target Yaw (tx)", () -> 
+                getBestTarget().map(target -> target.tx).orElse(0.0))
+                .withWidget(BuiltInWidgets.kTextView)
+                .withSize(3, 2)
+                .withPosition(6, 0);
+        }
 
-        visionTab.addNumber("Target Pose X", () -> getBestTarget().map(target -> target.poseX).orElse(0.0))
-            .withWidget(BuiltInWidgets.kTextView)
-            .withSize(3, 2)
-            .withPosition(9, 0);
+        if (widgetNotPresent("Target Pitch (ty)")) {
+            visionTab.addNumber("Target Pitch (ty)", () -> 
+                getBestTarget().map(target -> target.ty).orElse(0.0))
+                .withWidget(BuiltInWidgets.kTextView)
+                .withSize(3, 2)
+                .withPosition(6, 2);
+        }
 
-        visionTab.addNumber("Target Pose Y", () -> getBestTarget().map(target -> target.poseY).orElse(0.0))
-            .withWidget(BuiltInWidgets.kTextView)
-            .withSize(3, 2)
-            .withPosition(9, 2);
+        if (widgetNotPresent("Target Pose X")) {
+            visionTab.addNumber("Target Pose X", () -> 
+                getBestTarget().map(target -> target.poseX).orElse(0.0))
+                .withWidget(BuiltInWidgets.kTextView)
+                .withSize(3, 2)
+                .withPosition(9, 0);
+        }
 
-        // Offsets and errors layout - tracking performance metrics
-        visionTab.addNumber("Target Horizontal Offset", () -> {
-                return getBestTarget().map(target -> getTargetHorizontalOffset(target.id)).orElse(0.0);
-            })
-            .withWidget(BuiltInWidgets.kTextView)
-            .withSize(3, 2)
-            .withPosition(12, 0);
+        if (widgetNotPresent("Target Pose Y")) {
+            visionTab.addNumber("Target Pose Y", () -> 
+                getBestTarget().map(target -> target.poseY).orElse(0.0))
+                .withWidget(BuiltInWidgets.kTextView)
+                .withSize(3, 2)
+                .withPosition(9, 2);
+        }
 
-        // Error tracking for PID feedback visualization
-        visionTab.addNumber("Distance Error", () -> {
-                return getBestTarget().map(target -> {
+        if (widgetNotPresent("Target Horizontal Offset")) {
+            visionTab.addNumber("Target Horizontal Offset", () -> 
+                getBestTarget().map(target -> getTargetHorizontalOffset(target.id)).orElse(0.0))
+                .withWidget(BuiltInWidgets.kTextView)
+                .withSize(3, 2)
+                .withPosition(12, 0);
+        }
+
+        if (widgetNotPresent("Distance Error")) {
+            visionTab.addNumber("Distance Error", () -> 
+                getBestTarget().map(target -> {
                     double distance = Math.hypot(target.poseX, target.poseY);
                     double targetVerticalOffset = getTargetVerticalOffset(target.id);
                     return distance - targetVerticalOffset;
-                }).orElse(0.0);
-            })
-            .withWidget(BuiltInWidgets.kGraph)
-            .withSize(5, 2)
-            .withPosition(0, 4);
+                }).orElse(0.0))
+                .withWidget(BuiltInWidgets.kGraph)
+                .withSize(5, 2)
+                .withPosition(0, 4);
+        }
 
-        visionTab.addNumber("Horizontal Error", () -> {
-                return getBestTarget().map(target -> {
+        if (widgetNotPresent("Horizontal Error")) {
+            visionTab.addNumber("Horizontal Error", () -> 
+                getBestTarget().map(target -> {
                     double targetHorizontalOffset = getTargetHorizontalOffset(target.id);
                     return target.poseY - targetHorizontalOffset;
-                }).orElse(0.0);
-            })
-            .withWidget(BuiltInWidgets.kGraph)
-            .withSize(5, 2)
-            .withPosition(5, 4);
+                }).orElse(0.0))
+                .withWidget(BuiltInWidgets.kGraph)
+                .withSize(5, 2)
+                .withPosition(5, 4);
+        }
 
-        visionTab.addNumber("Angle Error", () -> getBestTarget().map(target -> target.tx).orElse(0.0))
-            .withWidget(BuiltInWidgets.kGraph)
-            .withSize(5, 2)
-            .withPosition(10, 4);
+        if (widgetNotPresent("Angle Error")) {
+            visionTab.addNumber("Angle Error", () -> 
+                getBestTarget().map(target -> target.tx).orElse(0.0))
+                .withWidget(BuiltInWidgets.kGraph)
+                .withSize(5, 2)
+                .withPosition(10, 4);
+        }
 
-        // Source information
-        visionTab.addString("Limelight Source", () -> getBestTarget().map(target -> target.limelightName).orElse("none"))
-            .withWidget(BuiltInWidgets.kTextView)
-            .withSize(3, 2)
-            .withPosition(12, 2);
+        if (widgetNotPresent("Best Tag Distance")) {
+            visionTab.addNumber("Best Tag Distance", () -> 
+                getBestTarget().map(target -> Math.hypot(target.poseX, target.poseY)).orElse(0.0))
+                .withWidget(BuiltInWidgets.kDial)
+                .withSize(4, 2)
+                .withPosition(15, 0);
+        }
+
+        // For each Limelight, add a unique widget (checking by title)
+        int positionY = 2;
+        for (String name : VisionConstants.LIMELIGHT_NAMES) {
+            String widgetName = "limelight-" + name + " Has Target";
+            if (widgetNotPresent(widgetName)) {
+                visionTab.addBoolean(widgetName, () -> LimelightHelpers.getTV("limelight-" + name))
+                    .withWidget(BuiltInWidgets.kBooleanBox)
+                    .withSize(4, 2)
+                    .withPosition(15, positionY);
+            }
+            positionY += 2;
+        }
+    }
+    
+    private boolean widgetNotPresent(String title) {
+        for (ShuffleboardComponent<?> comp : visionTab.getComponents()) {
+            if (title.equals(comp.getTitle())) {
+                return false;
+            }
+        }
+        return true;
     }
 
     // Toggles AprilTag tracking and controls Limelight LEDs.

@@ -76,6 +76,10 @@ public class Elevator extends SubsystemBase {
         config.encoder.positionConversionFactor(ElevatorConstants.ELEVATOR_POSITION_CONVERSION)
             .velocityConversionFactor(ElevatorConstants.ELEVATOR_VELOCITY_CONVERSION);
 
+        // Configure encoder conversion factors with corrected conversion factor between height and ticks
+        // config.encoder.positionConversionFactor(1.0 / ElevatorConstants.ELEVATOR_POSITION_CONVERSION)
+            // .velocityConversionFactor(1.0 / ElevatorConstants.ELEVATOR_VELOCITY_CONVERSION);
+
         // Configure closed-loop control with PID values
         config.closedLoop.feedbackSensor(FeedbackSensor.kPrimaryEncoder)
             .p(ElevatorConstants.ELEVATOR_kP)
@@ -235,8 +239,8 @@ public class Elevator extends SubsystemBase {
                 leftMotor.set(ff);
                 rightMotor.set(ff);
             } else {
-                leftMotor.set(speed + ff);
-                rightMotor.set(speed + ff);
+                leftMotor.set(speed);
+                rightMotor.set(speed);
             }
         } else {
             System.err.println("WARNING: Elevator out of bounds! Position: " + getCurrentPosition());

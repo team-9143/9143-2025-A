@@ -46,18 +46,21 @@ public class RobotContainer {
     private final CommandXboxController driver_controller = new CommandXboxController(0);
     private final CommandXboxController operator_controller = new CommandXboxController(1);
 
-    public final Swerve swerve = TunerConstants.createDrivetrain();
+    // Create the Swerve instance with the Vision instance
+    public final Swerve swerve;
 
     private final Elevator elevator = new Elevator();
     private final CorAl coral = new CorAl();
     //private final AlLow allow = new AlLow();
-    private final Vision vision = new Vision(swerve);
 
     private final SendableChooser<Command> autoChooser;
     private final ShuffleboardTab autoTab = Shuffleboard.getTab("Auto");
 
     public RobotContainer() {
-        swerve.setVision(vision);
+        // Initialize Swerve without Vision parameter
+        swerve = TunerConstants.createDrivetrain();
+        
+        new Vision(swerve);
 
         // Create auto chooser and put it on the Auto tab in Shuffleboard
         autoChooser = AutoBuilder.buildAutoChooser();
@@ -92,13 +95,19 @@ public class RobotContainer {
             point.withModuleDirection(new Rotation2d(-driver_controller.getLeftY(), -driver_controller.getLeftX()))
         ));
 
-        driver_controller.pov(0).whileTrue(swerve.applyRequest(() ->
+        driver_controller.povUp().whileTrue(swerve.applyRequest(() ->
             forwardStraight.withVelocityX(0.5).withVelocityY(0))
         );
-        driver_controller.pov(180).whileTrue(swerve.applyRequest(() ->
+        driver_controller.povDown().whileTrue(swerve.applyRequest(() ->
             forwardStraight.withVelocityX(-0.5).withVelocityY(0))
         );
-
+        driver_controller.povLeft().whileTrue(swerve.applyRequest(() ->
+            forwardStraight.withVelocityX(0).withVelocityY(0.5))
+        );
+        driver_controller.povRight().whileTrue(swerve.applyRequest(() ->
+            forwardStraight.withVelocityX(0).withVelocityY(-0.5))
+        );
+        
         // Run SysId routines when holding back/start and X/Y.
         // Note that each routine should be run exactly once in a single log.
         driver_controller.back().and(driver_controller.y()).whileTrue(swerve.sysIdDynamic(Direction.kForward));
@@ -204,8 +213,7 @@ public class RobotContainer {
             Commands.sequence(
                 Commands.runOnce(() -> coral.setPivotAngle(CorAlConstants.PivotPresetAngles.BASE.getAngle()), coral),
                 Commands.waitUntil(coral::isAtTargetAngle),
-                Commands.runOnce(() -> coral.setIntakeSpeed(CorAlConstants.CORAL_INTAKE_SPEED), coral),
-                Commands.waitUntil(() -> !coral.isGamePieceDetected()),
+                Commands.runOnce(() -> coral.setIntakeSpeed(CorAlConstants.CORAL_SCORE_SPEED), coral),
                 Commands.waitSeconds(0.5),
                 Commands.runOnce(coral::stopIntake, coral)
             )
@@ -223,7 +231,7 @@ public class RobotContainer {
         // Algae hold (raise angle and no roller speed)
         operator_controller.y().onTrue(
             Commands.sequence(
-                Commands.runOnce(coral::stopIntake, coral),
+                Commands.runOnce(() -> coral.setIntakeSpeed(CorAlConstants.ALGAE_HOLD_SPEED), coral),
                 Commands.runOnce(() -> coral.setPivotAngle(CorAlConstants.PivotPresetAngles.RAISE.getAngle()), coral),
                 Commands.waitUntil(coral::isAtTargetAngle)
             )
@@ -234,7 +242,7 @@ public class RobotContainer {
             Commands.sequence(
                 Commands.runOnce(() -> coral.setPivotAngle(CorAlConstants.PivotPresetAngles.ALGAE_SCORE.getAngle()), coral),
                 Commands.waitUntil(coral::isAtTargetAngle),
-                Commands.runOnce(() -> coral.setIntakeSpeed(CorAlConstants.CORAL_INTAKE_SPEED), coral)
+                Commands.runOnce(() -> coral.setIntakeSpeed(CorAlConstants.ALGAE_SCORE_SPEED), coral)
             )
         );
 

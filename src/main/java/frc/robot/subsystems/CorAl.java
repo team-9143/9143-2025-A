@@ -19,68 +19,97 @@ import edu.wpi.first.wpilibj2.command.SubsystemBase;
 
 import frc.robot.Constants.CorAlConstants;
 
+/**
+ * The CorAl (Coral and Algae) subsystem class controls the robot's game piece manipulation mechanism.
+ * It includes a pivot mechanism and an intake system for handling coral and algae game pieces.
+ * 
+ * Features:
+ * - Dual motor control for pivot and intake mechanisms
+ * - Position control using both motor encoder and through bore encoder feedback
+ * - Game piece detection using a CANRange sensor
+ * - Comprehensive safety checks and soft limits
+ * - Advanced telemetry via Shuffleboard
+ */
 public class CorAl extends SubsystemBase {
-    private final TalonFX pivotMotor;
-    private final TalonFX intakeMotor;
-    private final DigitalInput throughBoreInput;
-    private final DutyCycle throughBore;
-    private final CANrange canRangeSensor;
+    // Hardware Components
+    private final TalonFX pivotMotor;             // Motor controlling the pivot mechanism
+    private final TalonFX intakeMotor;            // Motor controlling the intake rollers
+    private final DigitalInput throughBoreInput;  // Input for the through bore encoder
+    private final DutyCycle throughBore;          // Duty cycle reader for the through bore encoder
+    private final CANrange canRangeSensor;        // Distance sensor for game piece detection
     
-    // Shuffleboard elements
-    private final ShuffleboardTab coralTab;
+    // Shuffleboard Display
+    private final ShuffleboardTab coralTab;       // Tab for CorAl subsystem telemetry
 
-    // Control requests for the motors
-    private final PositionVoltage positionRequest;
-    private final DutyCycleOut percentRequest;
+    // Motor Control Objects
+    private final PositionVoltage positionRequest; // Position control request for the pivot motor
+    private final DutyCycleOut percentRequest;     // Percent output control request for motors
 
-    // Timer for delaying roller stop after game piece detection
-    private final Timer detectionTimer = new Timer();
-    private boolean gamePieceDetected = false;
-
-    private final Timer rollerTimer = new Timer();
-    private boolean rollerTimerRunning = false;
-    private double rollerRunTime = 1.0;
+    // Game Piece Detection Variables
+    private boolean possibleGamePieceDetected = false;  // Indicates a possible game piece detection
+    private final Timer gameDetectionTimer = new Timer(); // Timer for confirming game piece detection
+    private boolean gameDetectionTimerRunning = false;   // Flag indicating if timer is running
+    private boolean gamePieceDetected = false;           // Confirmed game piece detection status
     
-    // Target angle tracking
-    private double currentTargetAngle = 0;
+    // Position Tracking
+    private double currentTargetAngle = 0;        // Current target angle for position control
     
-    // Through bore offset for calibration
-    private double throughBoreOffset = 0;
+    // Encoder Calibration Variables
+    private double throughBoreOffset = 0;         // Offset for the through bore encoder reading
+    private double previousRawThroughBoreAngle = 0; // Previous raw angle for unwrapping
+    private double throughBoreUnwrapOffset = 0;   // Unwrap offset for handling rotation beyond 360Â°
 
+    // Sensor Calibration
+    private double canRangeBaseline = 0;          // Baseline reading for the CANRange sensor
+
+    // Control Mode
+    private boolean positionControlActive = false; // Flag indicating if position control is active
+
+    /**
+     * Constructor for the CorAl subsystem.
+     * Initializes all hardware components, calibrates sensors, and sets up Shuffleboard displays.
+     */
     public CorAl() {
-        // Initialize motors
+        // Initialize motors with specified CAN IDs
         pivotMotor = new TalonFX(CorAlConstants.CORAL_PIVOT_MOTOR_ID);
         intakeMotor = new TalonFX(CorAlConstants.CORAL_INTAKE_MOTOR_ID);
 
-        // Initialize REV Through Bore Encoder
+        // Initialize REV Through Bore Encoder on specified DIO port
         throughBoreInput = new DigitalInput(CorAlConstants.THROUGH_BORE_DIO_PORT);
         throughBore = new DutyCycle(throughBoreInput);
 
-        // Initialize CANRange sensor
+        // Initialize CANRange sensor for game piece detection
         canRangeSensor = new CANrange(CorAlConstants.CANRANGE_SENSOR_ID);
 
-        // Initialize control requests
+        // Calibrate the CANRange baseline (reading when nothing is detected)
+        canRangeBaseline = canRangeSensor.getDistance().getValueAsDouble();
+        System.out.println("CANRange baseline calibrated to: " + canRangeBaseline);
+
+        // Initialize control request objects for motors
         positionRequest = new PositionVoltage(0).withSlot(0);
         percentRequest = new DutyCycleOut(0);
 
-        // Configure motors
+        // Configure motors with appropriate settings
         configurePivotMotor(pivotMotor);
         configureIntakeMotor(intakeMotor);
 
-        // Initialize Shuffleboard tab and layouts
+        // Initialize Shuffleboard tab for telemetry
         coralTab = Shuffleboard.getTab("CorAl");
 
-        // Configure Shuffleboard
+        // Configure Shuffleboard displays with telemetry data
         configureShuffleboard();
 
-        // Initialize detection timer
-        detectionTimer.reset();
+        // Initialize game piece detection timer
+        gameDetectionTimer.reset();
         
-        // Auto-zero the pivot motor and through bore encoder
+        // Zero encoders to calibrate the system
         zeroEncoders();
     }
 
-    // Zeros both the motor encoder and through bore encoder
+    /**
+     * Zeros both the motor encoder and through bore encoder to establish a reference point.
+     * This calibrates the system to use the current position as the zero position.
+     */
     public void zeroEncoders() {
         // Calculate the through bore offset to make current position zero
         throughBoreOffset = getRawThroughBoreAngle();
@@ -91,48 +120,68 @@ public class CorAl extends SubsystemBase {
         System.out.println("Encoders zeroed: Through bore offset set to " + throughBoreOffset + ".");
     }
 
+    /**
+     * Configures the pivot motor with appropriate settings.
+     * 
+     * @param motor The TalonFX motor to configure
+     */
     private void configurePivotMotor(TalonFX motor) {
         TalonFXConfiguration config = new TalonFXConfiguration();
 
-        // Configure inversion and brake mode
+        // Configure motor direction and brake mode
         config.MotorOutput.Inverted = CorAlConstants.CORAL_PIVOT_MOTOR_INVERTED ? 
             com.ctre.phoenix6.signals.InvertedValue.Clockwise_Positive : 
             com.ctre.phoenix6.signals.InvertedValue.CounterClockwise_Positive;
         config.MotorOutput.NeutralMode = NeutralModeValue.Brake;
+        
+        // Configure current limits for motor protection
         config.CurrentLimits.SupplyCurrentLimit = CorAlConstants.CORAL_PIVOT_CURRENT_LIMIT;
         config.CurrentLimits.SupplyCurrentLimitEnable = true;
 
-        // Configure the encoder and PID
+        // Configure encoder and position conversion
         config.Feedback.SensorToMechanismRatio = CorAlConstants.CORAL_PIVOT_POSITION_CONVERSION;
+        
+        // Configure PID constants for position control
         config.Slot0.kP = CorAlConstants.CORAL_PIVOT_kP;
         config.Slot0.kI = CorAlConstants.CORAL_PIVOT_kI;
         config.Slot0.kD = CorAlConstants.CORAL_PIVOT_kD;
         
-        // Use built-in gravity compensation
+        // Use built-in gravity compensation for consistent performance
         config.Slot0.GravityType = com.ctre.phoenix6.signals.GravityTypeValue.Arm_Cosine;
         config.Slot0.kG = CorAlConstants.CORAL_PIVOT_kF;
 
-        // Apply configuration
+        // Apply configuration to the motor
         motor.getConfigurator().apply(config);
     }
 
+    /**
+     * Configures the intake motor with appropriate settings.
+     * 
+     * @param motor The TalonFX motor to configure
+     */
     private void configureIntakeMotor(TalonFX motor) {
         TalonFXConfiguration config = new TalonFXConfiguration();
 
-        // Configure inversion and brake mode
+        // Configure motor direction and brake mode
         config.MotorOutput.Inverted = CorAlConstants.CORAL_INTAKE_MOTOR_INVERTED ? 
             com.ctre.phoenix6.signals.InvertedValue.Clockwise_Positive : 
             com.ctre.phoenix6.signals.InvertedValue.CounterClockwise_Positive;
         config.MotorOutput.NeutralMode = NeutralModeValue.Brake;
+        
+        // Configure current limits for motor protection
         config.CurrentLimits.SupplyCurrentLimit = CorAlConstants.CORAL_INTAKE_CURRENT_LIMIT;
         config.CurrentLimits.SupplyCurrentLimitEnable = true;
 
-        // Apply configuration
+        // Apply configuration to the motor
         motor.getConfigurator().apply(config);
     }
 
+    /**
+     * Configures the Shuffleboard tab with telemetry data and controls.
+     * Organizes information into logical groups for monitoring subsystem status.
+     */
     private void configureShuffleboard() {
-        // Status Layout - Boolean indicators
+        // Status Layout - Boolean indicators for system state
         coralTab.addBoolean("At Target", this::isAtTargetAngle)
             .withWidget(BuiltInWidgets.kBooleanBox)
             .withSize(3, 2)
@@ -154,7 +203,7 @@ public class CorAl extends SubsystemBase {
             .withPosition(0,6);
             
         // Position & Sensor Layout - Angle and CANrange information
-        coralTab.addNumber("Current Angle", this::getPivotAngle)
+        coralTab.addNumber("Through Bore Angle", this::getThroughBoreAngle)
             .withWidget(BuiltInWidgets.kDial)
             .withProperties(Map.of("min", CorAlConstants.CORAL_PIVOT_MIN_ANGLE, 
                 "max", CorAlConstants.CORAL_PIVOT_MAX_ANGLE))
@@ -173,7 +222,7 @@ public class CorAl extends SubsystemBase {
             .withSize(3, 2)
             .withPosition(3,6);
             
-        // Motor Layout - Current and output information
+        // Motor Layout - Current and output information for diagnostics
         coralTab.addNumber("Pivot Current", () -> pivotMotor.getSupplyCurrent().getValueAsDouble())
             .withWidget(BuiltInWidgets.kGraph)
             .withSize(5, 4)
@@ -194,7 +243,7 @@ public class CorAl extends SubsystemBase {
             .withSize(5, 4)
             .withPosition(11,4);
             
-        // PID Layout - Control parameters
+        // PID Layout - Control parameters for tuning
         coralTab.addNumber("P Gain", () -> CorAlConstants.CORAL_PIVOT_kP)
             .withSize(3, 2)
             .withPosition(16, 0);
@@ -210,37 +259,26 @@ public class CorAl extends SubsystemBase {
         coralTab.addNumber("F Gain", () -> CorAlConstants.CORAL_PIVOT_kF)
             .withSize(3, 2)
             .withPosition(16, 6);
-            
-        // Add Through Bore info
-        coralTab.addNumber("Through Bore Angle", this::getThroughBoreAngle)
-            .withWidget(BuiltInWidgets.kDial)
-            .withProperties(Map.of("min", CorAlConstants.CORAL_PIVOT_MIN_ANGLE, 
-                "max", CorAlConstants.CORAL_PIVOT_MAX_ANGLE))
-            .withSize(3, 2)
-            .withPosition(19,0);
-            
-        coralTab.addNumber("Through Bore Raw", this::getRawThroughBoreAngle)
-            .withSize(3, 2)
-            .withPosition(19,2);
-            
-        coralTab.addNumber("Through Bore Offset", () -> throughBoreOffset)
-            .withSize(3, 2)
-            .withPosition(19,4);
-            
-        coralTab.addNumber("Motor Encoder", () -> pivotMotor.getPosition().getValueAsDouble())
-            .withSize(3, 2)
-            .withPosition(19,6);
     }
 
+    /**
+     * Sets the pivot mechanism to a specified angle using position control.
+     * Uses either through bore encoder or motor encoder for feedback.
+     * 
+     * @param targetAngle The target angle in degrees
+     */
     public void setPivotAngle(double targetAngle) {
-        // Constrain the target angle to valid range
+        // Enable position control mode
+        positionControlActive = true;
+
+        // Constrain the target angle to valid range to prevent mechanical damage
         targetAngle = Math.min(Math.max(targetAngle, CorAlConstants.CORAL_PIVOT_MIN_ANGLE), 
                              CorAlConstants.CORAL_PIVOT_MAX_ANGLE);
         currentTargetAngle = targetAngle;
 
-        // Check if the through bore is connected before setting the position
+        // Check if the through bore encoder is connected before setting position
         if (isThroughBoreConnected()) {
-            // Set position based on the through bore reading
+            // Set position based on the through bore reading for better accuracy
             // Need to convert the target angle to motor position units
             double currentThroughBoreAngle = getThroughBoreAngle();
             double currentMotorPosition = pivotMotor.getPosition().getValueAsDouble();
@@ -255,61 +293,132 @@ public class CorAl extends SubsystemBase {
         }
     }
 
+    /**
+     * Resets the pivot encoder to calibrate the system.
+     * Calls zeroEncoders() and logs the action.
+     */
     public void resetPivotEncoder() {
         zeroEncoders();
         System.out.println("Pivot encoder reset.");
     }
 
+    /**
+     * Sets the intake roller speed.
+     * 
+     * @param speed The speed value (-1.0 to 1.0)
+     */
     public void setIntakeSpeed(double speed) {
         intakeMotor.setControl(percentRequest.withOutput(speed));
     }
 
+    /**
+     * Stops the intake roller motor.
+     */
     public void stopIntake() {
         setIntakeSpeed(0);
     }
 
-    public void startRollersWithTimer(double speed, double runTimeSeconds) {
-        setIntakeSpeed(speed);
-        rollerRunTime = runTimeSeconds;
-        rollerTimer.reset();
-        rollerTimer.start();
-        rollerTimerRunning = true;
-    }
-
+    /**
+     * Provides manual control of the pivot motor.
+     * Does not interrupt active position control.
+     * 
+     * @param speed The manual control speed (-1.0 to 1.0)
+     */
     public void manualPivotControl(double speed) {
+        // Do not interrupt position control with manual input
+        if (positionControlActive) {
+            return;
+        }
         pivotMotor.setControl(percentRequest.withOutput(speed));
     }
 
+    /**
+     * Disables position control mode, allowing manual control.
+     */
+    public void disablePositionControl() {
+        positionControlActive = false;
+    }
+
+    /**
+     * Stops the pivot motor.
+     */
     public void stopPivot() {
         pivotMotor.setControl(percentRequest.withOutput(0));
     }
 
-    // Get the raw angle reading from the through bore encoder without offset
+    /**
+     * Gets the raw angle reading from the through bore encoder without offset.
+     * 
+     * @return The raw angle in degrees
+     */
     public double getRawThroughBoreAngle() {
         double dutyCycle = throughBore.getOutput();
         return dutyCycle * (CorAlConstants.THROUGH_BORE_MAX_ANGLE - CorAlConstants.THROUGH_BORE_MIN_ANGLE) 
                + CorAlConstants.THROUGH_BORE_MIN_ANGLE;
     }
     
-    // Get the calibrated angle from the through bore encoder with offset applied
+    /**
+     * Gets the calibrated angle from the through bore encoder with offset applied.
+     * Handles continuous rotation by unwrapping angles beyond 360 degrees.
+     * 
+     * @return The calibrated angle in degrees
+     */
     public double getThroughBoreAngle() {
         if (!isThroughBoreConnected()) {
             // Fall back to motor position if through bore is disconnected
             return pivotMotor.getPosition().getValueAsDouble();
         }
-        return getRawThroughBoreAngle() - throughBoreOffset;
+        
+        // Get raw angle
+        double rawAngle = getRawThroughBoreAngle();
+
+        // Special handling for the negative value jump that occurs after ~19 degrees
+        // When we detect a negative angle, add 160 to maintain continuous sequence
+        if(rawAngle < 0) {
+            double correctedAngle = rawAngle + 160;
+            System.out.println("Negative angle detected: " + rawAngle + ", correcting to " + correctedAngle);
+            rawAngle = correctedAngle;
+        }
+
+        // Check if the jump is large (assuming jumps > 180 degrees are due to wrapping)
+        if (Math.abs(rawAngle - previousRawThroughBoreAngle) > 180) {
+            // Decide which way to adjust the unwrap offset
+            if (rawAngle > previousRawThroughBoreAngle) {
+                throughBoreUnwrapOffset -= 360;
+            } else {
+                throughBoreUnwrapOffset += 360;
+            }
+        }
+        previousRawThroughBoreAngle = rawAngle;
+        
+        double unwrappedAngle = rawAngle + throughBoreUnwrapOffset;
+        return unwrappedAngle - throughBoreOffset;
     }
 
-    // Get the pivot angle - returns the through bore angle as the primary source
+    /**
+     * Gets the pivot angle - returns the through bore angle as the primary source.
+     * 
+     * @return The current pivot angle in degrees
+     */
     public double getPivotAngle() {
-        // Use through bore as primary angle source
+        // Use through bore as primary angle source for greater accuracy
         return getThroughBoreAngle();
     }
 
+    /**
+     * Checks if the pivot is at the target angle within allowed error.
+     * 
+     * @return true if at target angle, false otherwise
+     */
     public boolean isAtTargetAngle() {
         return Math.abs(getPivotAngle() - currentTargetAngle) <= CorAlConstants.CORAL_PIVOT_ALLOWED_ERROR;
     }
 
+    /**
+     * Checks if the motor feedback is valid by comparing encoders.
+     * 
+     * @return true if feedback is valid, false otherwise
+     */
     public boolean isMotorFeedbackValid() {
         if (!isThroughBoreConnected()) {
             return true; // Assume valid if the Through Bore Encoder is disconnected
@@ -322,47 +431,96 @@ public class CorAl extends SubsystemBase {
         return discrepancy <= CorAlConstants.THROUGH_BORE_ALLOWED_DISCREPANCY;
     }
 
+    /**
+     * Checks if the through bore encoder is connected.
+     * 
+     * @return true if connected, false otherwise
+     */
     public boolean isThroughBoreConnected() {
         return throughBore.getFrequency() > 0;
     }
 
+    /**
+     * Checks if the pivot is outside its allowable angular range.
+     * 
+     * @return true if out of bounds, false otherwise
+     */
     private boolean isPivotOutOfBounds() {
         double currentAngle = getPivotAngle();
         return currentAngle < CorAlConstants.CORAL_PIVOT_MIN_ANGLE || 
                currentAngle > CorAlConstants.CORAL_PIVOT_MAX_ANGLE;
     }
 
+    /**
+     * Gets the distance reading from the CANRange sensor with conversion.
+     * 
+     * @return The distance in appropriate units
+     */
     public double getCANRangeDistance() {
-        return canRangeSensor.getDistance().getValueAsDouble(); // Get distance in millimeters
+        double rawDistance = canRangeSensor.getDistance().getValueAsDouble();
+        double conversionFactor = 65.535 / 0.4; // Approximately 163.8375
+        return rawDistance * conversionFactor;
     }
 
+    /**
+     * Checks if a game piece might be present based on CANRange reading.
+     * 
+     * @return true if a possible game piece is detected, false otherwise
+     */
+    private boolean isPossibleGamePiece() {
+        return getCANRangeDistance() > 0;
+    }
+
+    /**
+     * Implementation of the game piece detection logic with temporal filtering.
+     * Uses a timer to confirm detections and prevent false positives.
+     * 
+     * @return true if a game piece is confirmed, false otherwise
+     */
     public boolean isGamePieceDetected() {
-        return getCANRangeDistance() < CorAlConstants.CANRANGE_DETECTION_THRESHOLD;
-    }
-
-    // Handles game piece detection and manages the timer for auto-stopping intake
-    private void handleGamePieceDetection() {
-        if (isGamePieceDetected()) {
-            if (!gamePieceDetected) {
-                // Start the timer when the game piece is first detected
-                detectionTimer.reset();
-                detectionTimer.start();
-                gamePieceDetected = true;
+        if (isPossibleGamePiece()) {
+            // Game piece possibly detected (reading > 0)
+            if (!possibleGamePieceDetected) {
+                // First detection - start the timer
+                gameDetectionTimer.reset();
+                gameDetectionTimer.start();
+                gameDetectionTimerRunning = true;
+                possibleGamePieceDetected = true;
+                // System.out.println("Possible game piece detected - starting confirmation timer");
             }
             
-            // Stop the intake if the delay has elapsed
-            if (detectionTimer.hasElapsed(0.5)) { // 0.5-second delay
+            // Check if timer has completed (confirmation successful)
+            if (gameDetectionTimerRunning && 
+                gameDetectionTimer.hasElapsed(CorAlConstants.GAME_PIECE_DETECTION_CONFIRMATION_TIME)) {
+                gameDetectionTimer.stop();
+                gameDetectionTimerRunning = false;
+                // System.out.println("Game piece confirmed after " + 
+                    // CorAlConstants.GAME_PIECE_DETECTION_CONFIRMATION_TIME + " seconds");
+                // Immediately stop the intake when confirmed
                 stopIntake();
+                return true;
             }
         } else {
-            // Reset the timer and flag if no game piece is detected
-            detectionTimer.stop();
-            detectionTimer.reset();
-            gamePieceDetected = false;
+            // No game piece detected (reading <= 0)
+            if (possibleGamePieceDetected) {
+                // Was detecting, but reading dropped to 0 - reset detection
+                possibleGamePieceDetected = false;
+                if (gameDetectionTimerRunning) {
+                    gameDetectionTimer.stop();
+                    gameDetectionTimerRunning = false;
+                    // System.out.println("Detection cancelled - CANRange reading dropped to 0");
+                }
+            }
         }
+        
+        // Return true only if game piece has been confirmed
+        return possibleGamePieceDetected && !gameDetectionTimerRunning;
     }
-    
-    // Performs all safety checks and takes appropriate actions
+
+    /**
+     * Performs all safety checks and takes appropriate actions.
+     * Ensures system operates within safe parameters.
+     */
     private void performSafetyChecks() {
         // Check for motor feedback validity
         if (!isMotorFeedbackValid() && isThroughBoreConnected()) {
@@ -382,19 +540,22 @@ public class CorAl extends SubsystemBase {
         }
     }
 
+    /**
+     * Periodic method called by the CommandScheduler.
+     * Updates subsystem state and performs safety checks.
+     */
     @Override
     public void periodic() {
-        // Game piece detection logic (consolidated in one place)
-        handleGamePieceDetection();
+        // Update game piece detection state
+        gamePieceDetected = isGamePieceDetected();
         
-        // Safety checks
+        // Perform safety checks
         performSafetyChecks();
 
-        // Check if rollers should be stopped based on timer.
-        if (rollerTimerRunning && rollerTimer.get() >= rollerRunTime) {
-            stopIntake();
-            rollerTimer.stop();
-            rollerTimerRunning = false;
+        // If position control is active and the target angle is reached, disable position control
+        if (positionControlActive && isAtTargetAngle()) {
+            disablePositionControl();
+            System.out.println("Position control completed. Manual control enabled.");
         }
     }
 }
